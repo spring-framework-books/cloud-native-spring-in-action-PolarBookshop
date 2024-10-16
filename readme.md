@@ -130,3 +130,38 @@ also automate the deployment of Polar Bookshop to the production Kubernetes clus
 This book is focused on backend technologies, so I won’t teach you any frontend subjects. Of course, your application will need a frontend for the users to interact with. In
 the case of Polar Bookshop, you’ll rely on a client application using the Angular
 framework. 
+
+## requirements
+
+### Catalog Service
+Catalog Service will be responsible for supporting the following use cases:
+* View the list of books in the catalog.
+* Search books by their International Standard Book Number (ISBN).
+* Add a new book to the catalog.
+* Edit information for an existing book.
+* Remove a book from the catalog.
+#### REST API
+
+| Endpoint	      | Method   | Req. body  | Status | Resp. body     | Description    		   	     |
+|:---------------:|:--------:|:----------:|:------:|:--------------:|:-------------------------------|
+| `/books`        | `GET`    |            | 200    | Book[]         | Get all the books in the catalog. |
+| `/books`        | `POST`   | Book       | 201    | Book           | Add a new book to the catalog. |
+|                 |          |            | 422    |                | A book with the same ISBN already exists. |
+| `/books/{isbn}` | `GET`    |            | 200    | Book           | Get the book with the given ISBN. |
+|                 |          |            | 404    |                | No book with the given ISBN exists. |
+| `/books/{isbn}` | `PUT`    | Book       | 200    | Book           | Update the book with the given ISBN. |
+|                 |          |            | 200    | Book           | Create a book with the given ISBN. |
+| `/books/{isbn}` | `DELETE` |            | 204    |                | Delete the book with the given ISBN. |
+
+## Run
+mvn spring-boot:run -pl catalog-service
+## Deploy
+###  vulnerability scanner
+mvn install
+grype .
+## Test
+http POST :8080/books author="Lyra Silverstar" title="Northern Lights" isbn="1234567891" price=9.90
+
+http :8080/books/1234567891
+
+http POST :8080/books author="Jon Snow" title="" isbn="123ABC456Z" price=9.90
