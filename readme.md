@@ -155,13 +155,22 @@ Catalog Service will be responsible for supporting the following use cases:
 
 ## Run
 mvn spring-boot:run -pl catalog-service
+
+**Using testdata profile**
+
+mvn spring-boot:run -pl catalog-service -Dspring-boot.run.profiles=testdata
+
 ## Deploy
 ###  vulnerability scanner
 mvn install
 grype .
 ## Test
-http POST :8080/books author="Lyra Silverstar" title="Northern Lights" isbn="1234567891" price=9.90
+http :9001/
 
-http :8080/books/1234567891
+http :9001/books
 
-http POST :8080/books author="Jon Snow" title="" isbn="123ABC456Z" price=9.90
+http POST :9001/books author="Lyra Silverstar" title="Northern Lights" isbn="1234567891" price=9.90
+
+http :9001/books/1234567891
+
+http POST :9001/books author="Jon Snow" title="" isbn="123ABC456Z" price=9.90
