@@ -8,33 +8,15 @@
 		<version>1.0</version>
 	</parent>
 	<groupId>com.polarbookshop</groupId>
-	<artifactId>catalog-service</artifactId>
+	<artifactId>config-service</artifactId>
 	<version>1.0</version>
-	<name>catalog-service</name>
-	<description>Provides functionality for managing the books in the catalog.</description>
-
+	<name>config-service</name>
+	<description>Provides functionality for centralizing the application configuration.</description>
+	
 	<dependencies>
-
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jdbc</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-			<scope>runtime</scope>
-		</dependency>
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-starter-config</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-actuator</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.retry</groupId>
-			<artifactId>spring-retry</artifactId>
+			<artifactId>spring-cloud-config-server</artifactId>
 		</dependency>
 	</dependencies>
 	<build>

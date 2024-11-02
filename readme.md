@@ -154,7 +154,20 @@ Catalog Service will be responsible for supporting the following use cases:
 | `/books/{isbn}` | `DELETE` |            | 204    |                | Delete the book with the given ISBN. |
 
 ## Run
+### Postgres
+docker run -d \
+ --name polar-postgres \
+ -e POSTGRES_USER=user \
+ -e POSTGRES_PASSWORD=password \
+ -e POSTGRES_DB=polardb_catalog \
+ -p 5432:5432 postgres
+
+docker stop polar-postgres
+docker start polar-postgres
+### Apps
+mvn spring-boot:run -pl config-service
 mvn spring-boot:run -pl catalog-service
+
 
 **Using testdata profile**
 
@@ -165,6 +178,12 @@ mvn spring-boot:run -pl catalog-service -Dspring-boot.run.profiles=testdata
 mvn install
 grype .
 ## Test
+### Test Config Server
+http :8888/catalog-service/default
+
+http :8888/catalog-service/prod
+ 
+### test Catalog service
 http :9001/
 
 http :9001/books
