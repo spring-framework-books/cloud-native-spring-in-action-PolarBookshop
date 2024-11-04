@@ -164,12 +164,36 @@ docker run -d \
 
 docker stop polar-postgres
 docker start polar-postgres
+docker rm -fv polar-postgres
+#### Database Commands
+
+Start an interactive PSQL console:
+
+```bash
+docker exec -it polar-postgres psql -U user -d polardb_catalog
+```
+
+| PSQL Command	              | Description                                    |
+|:---------------------------|:-----------------------------------------------|
+| `\list`                    | List all databases.                            |
+| `\connect polardb_catalog` | Connect to specific database.                  |
+| `\dt`                      | List all tables.                               |
+| `\d book`                  | Show the `book` table schema.                  |
+| `\quit`                    | Quit interactive psql console.                 |
+
+From within the PSQL console, you can also fetch all the data stored in the `book` table.
+
+```bash
+select * from book;
+```
+## Tests
+mvn  test -pl catalog-service  -Dit.test=BookRepositoryJdbcTests
+mvn  test -pl catalog-service  -Dtest=CatalogServiceApplicationTests
+
 ### Apps
 mvn spring-boot:run -pl config-service
 mvn spring-boot:run -pl catalog-service
 
-mvn  test -pl catalog-service  -Dit.test=BookRepositoryJdbcTests
-mvn  test -pl catalog-service  -Dtest=CatalogServiceApplicationTests
 
 **Using testdata profile**
 
