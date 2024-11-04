@@ -168,6 +168,8 @@ docker start polar-postgres
 mvn spring-boot:run -pl config-service
 mvn spring-boot:run -pl catalog-service
 
+mvn  test -pl catalog-service  -Dit.test=BookRepositoryJdbcTests
+mvn  test -pl catalog-service  -Dtest=CatalogServiceApplicationTests
 
 **Using testdata profile**
 
