@@ -154,6 +154,11 @@ Catalog Service will be responsible for supporting the following use cases:
 | `/books/{isbn}` | `DELETE` |            | 204    |                | Delete the book with the given ISBN. |
 
 ## Run
+Add GitHub Container Registry
+
+docker login ghcr.io
+
+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
 ### Postgres
 docker run -d \
  --name polar-postgres \
@@ -186,6 +191,50 @@ From within the PSQL console, you can also fetch all the data stored in the `boo
 ```bash
 select * from book;
 ```
+
+## Dockarize
+### Using Dockerfile
+cd catalog-service
+mvn clean package spring-boot:repackage
+docker build -t catalog-service .
+
+## Using Buildpacks
+
+```console
+./mvnw spring-boot:build-image
+```
+// Or from root
+```console
+mvn spring-boot:build-image -pl catalog-service
+```
+
+docker network create catalog-network
+
+docker run -d \
+ --name polar-postgres \
+ --net catalog-network \
+ -e POSTGRES_USER=user \
+ -e POSTGRES_PASSWORD=password \
+ -e POSTGRES_DB=polardb_catalog \
+ -p 5432:5432 postgres
+
+docker run -d \
+--name catalog-service \
+--net catalog-network \
+-p 9001:9001 \
+-e SPRING_DATASOURCE_URL=jdbc:postgresql://polar-postgres:5432/polardb_catalog \
+-e SPRING_PROFILES_ACTIVE=testdata \
+catalog-service
+
+docker rm -f catalog-service polar-postgres
+docker network rm catalog-network
+### Publish
+ ./mvnw spring-boot:build-image \
+ --imageName ghcr.io/galkzaz/catalog-service \
+ --publishImage \
+ -PregistryUrl=ghcr.io \
+ -PregistryUsername=galkzaz \
+ -PregistryToken=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
 ## Tests
 mvn  test -pl catalog-service  -Dit.test=BookRepositoryJdbcTests
 mvn  test -pl catalog-service  -Dtest=CatalogServiceApplicationTests
@@ -201,8 +250,10 @@ mvn spring-boot:run -pl catalog-service -Dspring-boot.run.profiles=testdata
 
 ## Deploy
 ###  vulnerability scanner
+cd catalog-service/
 mvn install
 grype .
+grype catalog-service
 ## Test
 ### Test Config Server
 http :8888/catalog-service/default
