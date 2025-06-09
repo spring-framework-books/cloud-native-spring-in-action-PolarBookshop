@@ -14,7 +14,7 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <springFrameworkVersion>6.1.1</springFrameworkVersion>
-        <springBootVersion>3.3.4</springBootVersion>
+        <springBootVersion>3.3.11</springBootVersion>
         <spring-cloud.version>2023.0.2</spring-cloud.version>
         <springDataBomVersion>2023.0.1</springDataBomVersion>
         <jacksonVersion>2.15.0</jacksonVersion>

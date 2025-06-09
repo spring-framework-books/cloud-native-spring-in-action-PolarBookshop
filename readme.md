@@ -192,6 +192,19 @@ From within the PSQL console, you can also fetch all the data stored in the `boo
 select * from book;
 ```
 
+## Development
+### Run services locally
+./mvnw  -pl config-service spring-boot:run
+./mvnw  -pl catalog-service spring-boot:run
+## Deployment
+## static code analysis
+### vulnerability scanner
+curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
+
+./mvnw install -DskipTests
+
+grype .
+
 ## Dockarize
 ### Using Dockerfile
 cd catalog-service
@@ -201,33 +214,16 @@ docker build -t catalog-service .
 ## Using Buildpacks
 
 ```console
-./mvnw spring-boot:build-image
+./mvnw spring-boot:build-image -DskipTests
+
+./gradlew bootBuildImage -DskipTests
+
+cd polar-deployment/docker
+
+docker compose up -d
+
+docker-compose down
 ```
-// Or from root
-```console
-mvn spring-boot:build-image -pl catalog-service
-```
-
-docker network create catalog-network
-
-docker run -d \
- --name polar-postgres \
- --net catalog-network \
- -e POSTGRES_USER=user \
- -e POSTGRES_PASSWORD=password \
- -e POSTGRES_DB=polardb_catalog \
- -p 5432:5432 postgres
-
-docker run -d \
---name catalog-service \
---net catalog-network \
--p 9001:9001 \
--e SPRING_DATASOURCE_URL=jdbc:postgresql://polar-postgres:5432/polardb_catalog \
--e SPRING_PROFILES_ACTIVE=testdata \
-catalog-service
-
-docker rm -f catalog-service polar-postgres
-docker network rm catalog-network
 ### Publish
  ./mvnw spring-boot:build-image \
  --imageName ghcr.io/galkzaz/catalog-service \
@@ -239,16 +235,12 @@ docker network rm catalog-network
 mvn  test -pl catalog-service  -Dit.test=BookRepositoryJdbcTests
 mvn  test -pl catalog-service  -Dtest=CatalogServiceApplicationTests
 
-### Apps
-mvn spring-boot:run -pl config-service
-mvn spring-boot:run -pl catalog-service
-
-
 **Using testdata profile**
 
 mvn spring-boot:run -pl catalog-service -Dspring-boot.run.profiles=testdata
 
 ## Deploy
+## Kubernetes
 ###  vulnerability scanner
 cd catalog-service/
 mvn install

@@ -22,6 +22,7 @@ spring:
 #       server:
 #         git:
 #           uri: https://github.com/PolarBookshop/config-repo
+            # By default, the server will return configuration data from the “main” branch.
 #           default-label: main
 #           timeout: 5
 #           clone-on-start: true
