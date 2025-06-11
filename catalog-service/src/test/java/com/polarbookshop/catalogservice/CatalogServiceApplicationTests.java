@@ -16,6 +16,7 @@ port (because it doesn’t matter which one).
  */
 // Loads a full Spring web application context and a Servlet container listening on a random port
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// Enables the “integration” profile to load configuration from application-integration.yml
 @ActiveProfiles("integration")
 class CatalogServiceApplicationTests {
 

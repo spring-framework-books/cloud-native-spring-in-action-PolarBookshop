@@ -33,6 +33,8 @@ public record Book(
         @Version int version
 
 ) {
+    // For convenience, let’s add a static factory method to the Book record for
+    // building an object by passing only the business fields.
 
     public static Book of(String isbn, String title, String author, Double price, String publisher) {
         return new Book(null, isbn, title, author, price, publisher, null, null, 0);

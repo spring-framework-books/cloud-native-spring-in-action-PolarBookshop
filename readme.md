@@ -158,7 +158,7 @@ Add GitHub Container Registry
 
 docker login ghcr.io
 
-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
+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
 ### Postgres
 docker run -d \
  --name polar-postgres \
@@ -205,6 +205,8 @@ curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sud
 
 grype .
 
+grype catalog-service
+
 ## Dockarize
 ### Using Dockerfile
 cd catalog-service
@@ -241,7 +243,7 @@ mvn spring-boot:run -pl catalog-service -Dspring-boot.run.profiles=testdata
 
 ## Deploy
 ## Kubernetes
-###  vulnerability scanner
+###  vulnerability scannerbootBuildImage
 cd catalog-service/
 mvn install
 grype .

@@ -34,6 +34,10 @@ public class BookService {
     public Book editBookDetails(String isbn, Book book) {
         return bookRepository.findByIsbn(isbn)
                 .map(existingBook -> {
+                    /*
+                     * Uses the last modified date of the existing book record. It will be
+                     * updated automatically by Spring Data if the operation succeeds.
+                     */
                     var bookToUpdate = new Book(
                             existingBook.id(),
                             existingBook.isbn(),
@@ -44,6 +48,7 @@ public class BookService {
                             existingBook.createdDate(),
                             existingBook.lastModifiedDate(),
                             existingBook.version());
+
                     return bookRepository.save(bookToUpdate);
                 })
                 .orElseGet(() -> addBookToCatalog(book));
