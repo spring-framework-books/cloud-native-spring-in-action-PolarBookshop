@@ -3,7 +3,7 @@ on:
   push:
 env:
  REGISTRY: ghcr.io 
- IMAGE_NAME: galkzaz/catalog-service 
+ IMAGE_NAME: ${{ github.repository }}/catalog-service 
  VERSION: latest 
 jobs:
   build:
