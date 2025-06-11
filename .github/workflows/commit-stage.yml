@@ -3,7 +3,7 @@ on:
   push:
 env:
  REGISTRY: ghcr.io 
- IMAGE_NAME: cloud-native-spring-in-action-PolarBookshop/catalog-service 
+ IMAGE_NAME: cloud-native-spring-in-action-polarbookshop/catalog-service 
  VERSION: latest 
 jobs:
   build:
