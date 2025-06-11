@@ -13,6 +13,10 @@
 	<name>catalog-service</name>
 	<description>Provides functionality for managing the books in the catalog.</description>
 
+	<properties>
+		<!-- <imageName>${project.artifactId}:${project.version}</imageName> -->
+		 <imageName>${project.artifactId}</imageName>
+	</properties>
 	<dependencies>
 
 		<dependency>
@@ -55,7 +59,7 @@
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
 					<image>
-						<name>${project.artifactId}</name>
+						<name>${imageName}</name>
 						<env>
 							<BP_JVM_VERSION>17</BP_JVM_VERSION>
 						</env>

@@ -228,11 +228,11 @@ docker-compose down
 ```
 ### Publish
  ./mvnw spring-boot:build-image \
- --imageName ghcr.io/galkzaz/catalog-service \
- --publishImage \
- -PregistryUrl=ghcr.io \
- -PregistryUsername=galkzaz \
- -PregistryToken=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
+ -DimageName=ghcr.io/galkzaz/catalog-service \
+ -Dspring-boot.build-image.publish=true \
+ -Ddocker.publishRegistry.url=ghcr.io \
+ -Ddocker.publishRegistry.username=galkzaz \
+ -Ddocker.publishRegistry.password=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
 ## Tests
 mvn  test -pl catalog-service  -Dit.test=BookRepositoryJdbcTests
 mvn  test -pl catalog-service  -Dtest=CatalogServiceApplicationTests
