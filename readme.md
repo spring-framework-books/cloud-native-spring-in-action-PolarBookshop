@@ -216,7 +216,7 @@ docker build -t catalog-service .
 ## Using Buildpacks
 
 ```console
-./mvnw spring-boot:build-image -DskipTests
+./mvnw   -pl catalog-service spring-boot:build-image -DskipTests
 
 ./gradlew bootBuildImage -DskipTests
 
