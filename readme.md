@@ -193,20 +193,6 @@ select * from book;
 ```
 
 ## Development
-### Run services locally
-./mvnw  -pl config-service spring-boot:run
-./mvnw  -pl catalog-service spring-boot:run
-## Deployment
-## static code analysis
-### vulnerability scanner
-curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
-
-./mvnw install -DskipTests
-
-grype .
-
-grype catalog-service
-
 ## Dockarize
 ### Using Dockerfile
 cd catalog-service
@@ -217,6 +203,8 @@ docker build -t catalog-service .
 
 ```console
 ./mvnw   -pl catalog-service spring-boot:build-image -DskipTests
+
+./mvnw   -pl config-service spring-boot:build-image -DskipTests
 
 ./gradlew bootBuildImage -DskipTests
 
@@ -233,6 +221,83 @@ docker-compose down
  -Ddocker.publishRegistry.url=ghcr.io \
  -Ddocker.publishRegistry.username=galkzaz \
  -Ddocker.publishRegistry.password=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
+### Run services locally
+./mvnw  -pl config-service spring-boot:run
+./mvnw  -pl catalog-service spring-boot:run
+### Run using Kubernetes
+
+#### Using kubectl
+minikube start --cpus 2 --memory 4g --driver docker --profile polar
+
+kubectl get nodes
+minikube profile list
+
+cd polar-deployment/kubernetes/platform/development
+
+kubectl apply -f services
+
+minikube image load catalog-service --profile polar
+
+cd catalog-service/
+
+kubectl apply -f k8s/deployment.yml
+kubectl apply -f k8s/service.yml
+
+clean up your cluster by removing all the resources you have
+created so far. 
+
+First, open a Terminal window, navigate to the catalog-service folder
+where you defined the Kubernetes manifests, and delete all the objects created for
+Catalog Service:
+
+kubectl delete -f k8s
+Finally, go to your polar-deployment repository, navigate to the kubernetes/plat-
+form/development folder, and delete the PostgreSQL installation: 
+
+kubectl delete -f services
+#### Using Tilt
+minikube start --profile polar
+
+make sure you have a PostgreSQL instance up and running in your local Kubernetes cluster. 
+cd polar-deployment/kubernetes/platform/development
+
+kubectl apply -f services
+
+cd polar-deployment/kubernetes/applications/development
+tilt up
+
+open http://localhost:10350
+
+verify that the application is working correctly:
+
+http :9001/books
+
+To stop the Tilt process in the Catalog Service project and run the following command to undeploy the application: 
+
+navigate to the kubernetes/platform/development folder, and delete
+the PostgreSQL installation with 
+
+kubectl delete -f services. 
+
+Finally, stop the cluster as follows:
+
+minikube stop --profile polar
+
+### Visualizing your Kubernetes workloads 
+
+minikube --profile polar dashboard
+## Deployment
+## static code analysis
+### vulnerability scanner
+curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
+
+./mvnw install -DskipTests
+
+grype .
+
+grype catalog-service
+
+
 ## Tests
 mvn  test -pl catalog-service  -Dit.test=BookRepositoryJdbcTests
 mvn  test -pl catalog-service  -Dtest=CatalogServiceApplicationTests
@@ -243,12 +308,31 @@ mvn spring-boot:run -pl catalog-service -Dspring-boot.run.profiles=testdata
 
 ## Deploy
 ## Kubernetes
-###  vulnerability scannerbootBuildImage
+
+###  vulnerability scanner
 cd catalog-service/
 mvn install
 grype .
 grype catalog-service
 ## Test
+### Local 
+### Test Config Server
+http :8888/catalog-service/default
+
+http :8888/catalog-service/prod
+ 
+### test Catalog service
+http :9001/
+
+http :9001/books
+
+http POST :9001/books author="Lyra Silverstar" title="Northern Lights" isbn="1234567891" price=9.90
+
+http :9001/books/1234567891
+
+http POST :9001/books author="Jon Snow" title="" isbn="123ABC456Z" price=9.90
+
+### Local Kubernetes
 ### Test Config Server
 http :8888/catalog-service/default
 

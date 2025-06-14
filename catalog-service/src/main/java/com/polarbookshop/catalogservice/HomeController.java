@@ -16,7 +16,7 @@ public class HomeController {
 
     @GetMapping("/")
     public String getGreeting() {
-        return polarProperties.getGreeting();
+        return polarProperties.getGreeting() + "test Tilt";
     }
 
 }

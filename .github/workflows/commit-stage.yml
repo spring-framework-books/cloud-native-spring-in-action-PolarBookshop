@@ -1,9 +1,10 @@
 name: Commit Stage
 on:
   push:
+
 jobs:
   build:
-    name: Build and Test ${{ matrix.project }}
+    name: Build and Test
     runs-on: ubuntu-22.04
     permissions:
       contents: read
@@ -15,18 +16,113 @@ jobs:
           catalog-service,
           config-service,
         ]
+    env:
+      REGISTRY: ghcr.io 
+      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }} 
+      VERSION: latest 
     steps:
-      - name: Checkout repository
+      # Checks out the currentGit repository
+      - name: Checkout source code
         uses: actions/checkout@v4
+        # Installs and configures a Java runtime
       - name: Set up JDK
         uses: actions/setup-java@v4
+        # Defines which version, distribution, and cache type to use
         with:
           distribution: temurin
           java-version: 17
           cache: maven
       - name: Build, unit tests and integration tests
+        # Ensures the Gradle wrapper is executable, solving Windows incompatibilities
+        # Runs the Maven build task, which incompatibilities compiles the codebase and runs unit and integration tests
         run: |
-          cd ${{ matrix.project }}
           chmod +x mvnw
           ./mvnw install
-  
+      - name: Code vulnerability scanning
+        uses: anchore/scan-action@v3
+        # Assigns an identifier to the current step so that it can be referenced from subsequent steps
+        id: scan
+        with:
+          # The path to the checked-out repository
+          path: "${{ github.workspace }}"
+          # Whether to fail the build in the event of security vulnerabilities
+          fail-build: false
+          #The minimum security category to be considered as an error (low, medium, high, critical)
+          severity-cutoff: high
+      - name: Upload vulnerability report
+        # Uploads the security vulnerability report to itHub (SARIF format)
+        uses: github/codeql-action/upload-sarif@v3
+        # Uploads the report even if the previous step fails
+        if: success() || failure()
+        with:
+          # Fetches the report from the output of the previous step
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+      - name: Setup tools
+        uses: alexellis/setup-arkade@v3
+      - name: Install tools
+        uses: alexellis/arkade-get@master
+        with:
+          kubeconform: latest
+      - name: Validate Kubernetes manifests
+        run: |
+          kubeconform --strict k8s
+  package: 
+    name: Package and Publish
+    # This job runs only on the main branch
+    if: ${{ github.ref == 'refs/heads/main' }} 
+    # Runs the job only if the “build” job completes successfully
+    needs: [ build ] 
+    runs-on: ubuntu-22.04 
+    permissions:
+      # Grants the job permissions to read the repository contents and write to the package registry
+      # This is necessary for the job to be able to push the Docker image to the registry
+      contents: read 
+      packages: write 
+      # Grants the job permissions to write security events, such as security vulnerability reports
+      security-events: write 
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [
+          catalog-service,
+          config-service,
+        ]
+    env:
+      REGISTRY: ghcr.io 
+      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }} 
+      VERSION: latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3 
+      - name: Set up JDK
+        uses: actions/setup-java@v3 
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Build container image
+        run: |
+          chmod +x mvnw
+          ./mvnw spring-boot:build-image -DimageName=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+      # Scans the release candidate image for vulnerabilities using grype
+      - name: OCI image vulnerability scanning
+        uses: anchore/scan-action@v3 
+        id: scan
+        with: 
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+          fail-build: false 
+          severity-cutoff: high 
+      #Scans the release candidate image for vulnerabilities using grype
+      - name: Upload vulnerability report
+        uses: github/codeql-action/upload-sarif@v3
+        if: success() || failure()
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+      - name: Log into container registry
+        uses: docker/login-action@v2 
+        with:
+          registry: ${{ env.REGISTRY }} 
+          username: ${{ github.repository_owner }} 
+          password: ${{ secrets.GITHUB_TOKEN }} 
+      - name: Publish container image 
+        run: docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}

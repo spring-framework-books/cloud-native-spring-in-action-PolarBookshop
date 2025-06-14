@@ -62,6 +62,8 @@
 						<name>${imageName}</name>
 						<env>
 							<BP_JVM_VERSION>17</BP_JVM_VERSION>
+							<BP_LIVE_RELOAD_ENABLED>true</BP_LIVE_RELOAD_ENABLED>
+							<BPL_DEBUG_ENABLED>true</BPL_DEBUG_ENABLED>
 						</env>
 					</image>
 				</configuration>
