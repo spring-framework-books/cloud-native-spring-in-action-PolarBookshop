@@ -153,6 +153,22 @@ Catalog Service will be responsible for supporting the following use cases:
 |                 |          |            | 200    | Book           | Create a book with the given ISBN. |
 | `/books/{isbn}` | `DELETE` |            | 204    |                | Delete the book with the given ISBN. |
 
+### Order Service
+Order Service will provide functionality for purchasing books. Like Catalog Service, it
+will expose a REST API and store data in a PostgreSQL database. Unlike Catalog Ser-
+vice, it will use the reactive programming paradigm to improve scalability, resilience,
+and cost-effectiveness.
+
+Order Service will also interact with Catalog Service through its REST API to fetch
+details about books and check their availability. 
+#### REST API
+Order Service will expose a REST API to retrieve existing book orders and submit new ones. Each order can be
+related to one book only, and up to five copies. 
+| Endpoint	      | Method   | Req. body    | Status | Resp. body     | Description    		   	                               |
+|:---------------:|:--------:|:------------:|:------:|:--------------:|:-------------------------------------------------------|
+| `/orders`       | `POST`   | OrderRequest | 200    | Order          |Submits a new order for a given book in a given quantity| 
+| `/orders`       | `GET`    |              |200     | Order[]        |Retrieves all the orders                               | 
+
 ## Run
 Add GitHub Container Registry
 

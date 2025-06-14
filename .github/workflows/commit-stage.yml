@@ -65,6 +65,7 @@ jobs:
           kubeconform: latest
       - name: Validate Kubernetes manifests
         run: |
+          cd ${{ matrix.project }}
           kubeconform --strict k8s
   package: 
     name: Package and Publish
@@ -102,6 +103,7 @@ jobs:
           cache: maven
       - name: Build container image
         run: |
+          cd ${{ matrix.project }}
           chmod +x mvnw
           ./mvnw spring-boot:build-image -DimageName=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
       # Scans the release candidate image for vulnerabilities using grype
