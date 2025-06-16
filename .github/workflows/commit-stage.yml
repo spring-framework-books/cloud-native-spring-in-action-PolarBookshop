@@ -15,6 +15,7 @@ jobs:
         project: [
           catalog-service,
           config-service,
+          order-service
         ]
     env:
       REGISTRY: ghcr.io 

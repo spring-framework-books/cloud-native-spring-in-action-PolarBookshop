@@ -161,6 +161,9 @@ and cost-effectiveness.
 
 Order Service will also interact with Catalog Service through its REST API to fetch
 details about books and check their availability. 
+
+Orders can go through different phases. If the requested book is available in the catalog, then the order is accepted. If not, it’s rejected. Once the order is accepted, it can be
+dispatched
 #### REST API
 Order Service will expose a REST API to retrieve existing book orders and submit new ones. Each order can be
 related to one book only, and up to five copies. 
@@ -209,13 +212,13 @@ select * from book;
 ```
 
 ## Development
-## Dockarize
-### Using Dockerfile
+### Dockarize
+#### Using Dockerfile
 cd catalog-service
 mvn clean package spring-boot:repackage
 docker build -t catalog-service .
 
-## Using Buildpacks
+#### Using Buildpacks
 
 ```console
 ./mvnw   -pl catalog-service spring-boot:build-image -DskipTests
@@ -224,11 +227,6 @@ docker build -t catalog-service .
 
 ./gradlew bootBuildImage -DskipTests
 
-cd polar-deployment/docker
-
-docker compose up -d
-
-docker-compose down
 ```
 ### Publish
  ./mvnw spring-boot:build-image \
@@ -238,8 +236,21 @@ docker-compose down
  -Ddocker.publishRegistry.username=galkzaz \
  -Ddocker.publishRegistry.password=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
 ### Run services locally
+cd polar-deployment/docker
+
+docker-compose up -d polar-postgres
+
 ./mvnw  -pl config-service spring-boot:run
+
 ./mvnw  -pl catalog-service spring-boot:run
+
+./mvnw  -pl order-service spring-boot:run
+### Run using Docker compose
+cd polar-deployment/docker
+
+docker compose up -d
+
+docker-compose down
 ### Run using Kubernetes
 
 #### Using kubectl
@@ -293,7 +304,7 @@ To stop the Tilt process in the Catalog Service project and run the following co
 navigate to the kubernetes/platform/development folder, and delete
 the PostgreSQL installation with 
 
-kubectl delete -f services. 
+kubectl delete -f services
 
 Finally, stop the cluster as follows:
 
@@ -302,6 +313,11 @@ minikube stop --profile polar
 ### Visualizing your Kubernetes workloads 
 
 minikube --profile polar dashboard
+
+=== Query DB
+kubectl exec -it polar-postgres-d6474bb84-f8kks  -- psql  -U user -d polardb_catalog
+
+
 ## Deployment
 ## static code analysis
 ### vulnerability scanner
@@ -338,6 +354,8 @@ http :8888/catalog-service/default
 http :8888/catalog-service/prod
  
 ### test Catalog service
+*Books*
+
 http :9001/
 
 http :9001/books
@@ -348,6 +366,9 @@ http :9001/books/1234567891
 
 http POST :9001/books author="Jon Snow" title="" isbn="123ABC456Z" price=9.90
 
+### test orders service
+
+http POST :9002/orders isbn=1234567891 quantity=3
 ### Local Kubernetes
 ### Test Config Server
 http :8888/catalog-service/default
@@ -364,3 +385,12 @@ http POST :9001/books author="Lyra Silverstar" title="Northern Lights" isbn="123
 http :9001/books/1234567891
 
 http POST :9001/books author="Jon Snow" title="" isbn="123ABC456Z" price=9.90
+
+### test Order service
+http POST :9001/books author="Jon Snow" \
+ title="All I don't know about the Arctic" isbn="1234567897" \
+ price=9.90 publisher="Polarsophia"
+
+http POST :9002/orders isbn=1234567897 quantity=3
+
+http :9002/orders

@@ -1,0 +1,63 @@
+server:
+  port: 9002
+  # By default, Spring Boot stops the server immediately after receiving a terminationsignal (SIGTERM). 
+  # You can switch to a graceful mode by configuring the server.shut-down property. 
+  shutdown: graceful
+  netty:
+    # How long to wait for a TCP connection to be established with the server
+    connection-timeout: 2s
+    # How long to wait before closing a TCP connection if no data is transferred
+    idle-timeout: 15s 
+
+spring:
+  application:
+    name: order-service
+  lifecycle:
+    #    You can also configure the grace period, which is how long the applica-
+    # tion can spend processing all the pending requests. After the grace period expires,
+    # the application is terminated even if there are still pending requests. By default, the
+    # grace period is 30 seconds. 
+    timeout-per-shutdown-phase: 15s 
+  config:
+    # we can use (optional:configserver:http:/ /localhost:8888
+    import: "optional:configserver:"
+  cloud:
+    config:
+      uri: http://localhost:8888
+      request-connect-timeout: 5000 # 5s
+      request-read-timeout: 5000 # 5s
+      fail-fast: false # In production, set to true
+      retry:
+        max-attempts: 6
+        initial-interval: 1000 # 1s
+        max-interval: 2000 # 2s
+        multiplier: 1.1
+  r2dbc:
+    username: user
+    password: password
+    url: r2dbc:postgresql://localhost:5432/polardb_order
+    pool:
+      # The maximum time to wait to get a connection from the pool
+      max-create-connection-time: 2s 
+      # The initial size of the connection pool
+      initial-size: 5 
+      # The maximum number of connections kept in the pool
+      max-size: 10 
+  # Flyway doesn’t support R2DBC yet, so we
+  # need to provide a JDBC driver to communicate with the database. The Flyway migra-
+  # tion tasks are only run at application startup and in a single thread, so using a non-
+  # reactive communication approach for this one case doesn’t impact the overall applica-
+  # tion’s scalability and efficiency.
+  flyway:
+    user: ${spring.r2dbc.username}
+    password: ${spring.r2dbc.password}
+    url: jdbc:postgresql://localhost:5432/polardb_order
+management:
+  endpoints:
+    web:
+      exposure:
+        #Exposes the /actuator/refresh endpoint through HTTP
+        include: refresh
+polar:
+  # the URI for calling the Catalog Service
+ catalog-service-uri: "http://localhost:9001"

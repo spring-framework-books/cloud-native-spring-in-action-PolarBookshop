@@ -27,6 +27,7 @@
     <modules>
         <module>catalog-service</module>
         <module>config-service</module>
+        <module>order-service</module>
     </modules>
 
     <dependencyManagement>
