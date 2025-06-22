@@ -1,0 +1,150 @@
+server:
+  port: 9000
+  # By default, Spring Boot stops the server immediately after receiving a terminationsignal (SIGTERM). 
+  # You can switch to a graceful mode by configuring the server.shut-down property. 
+  shutdown: graceful
+  netty:
+    # How long to wait for a TCP connection to be established with the server
+    connection-timeout: 2s
+    # How long to wait before closing a TCP connection if no data is transferred
+    idle-timeout: 15s 
+
+spring:
+  application:
+    name: edge-service
+  lifecycle:
+    #    You can also configure the grace period, which is how long the applica-
+    # tion can spend processing all the pending requests. After the grace period expires,
+    # the application is terminated even if there are still pending requests. By default, the
+    # grace period is 30 seconds. 
+    timeout-per-shutdown-phase: 15s 
+  config:
+    # we can use (optional:configserver:http:/ /localhost:8888
+    import: "optional:configserver:"
+  data:
+    # used to provide storage for the rate limiters,
+    redis:
+      connect-timeout: 2s
+      host: localhost
+      port: 6379
+      timeout: 1s
+  session:
+    timeout: 10m
+    redis:
+      namespace: polar:edge
+
+  cloud:
+    config:
+      uri: http://localhost:8888
+      request-connect-timeout: 5000 # 5s
+      request-read-timeout: 5000 # 5s
+      fail-fast: false # In production, set to true
+      retry:
+        max-attempts: 6
+        initial-interval: 1000 # 1s
+        max-interval: 2000 # 2s
+        multiplier: 1.1
+    gateway:
+    # Configuration properties for the HTTP client
+      httpclient:
+        # Time limit for a connection to be established (in ms)
+        connect-timeout: 2000 # 2s
+        # Time limit for a response to be received (Duration)
+        response-timeout: 5s
+        pool:
+          # cType of connection pool (elastic, fixed, or disabled)
+          type: elastic
+          # Idle time after which the communication channel will be closed
+          max-idle-time: 15s
+          # Time after which the communication channel will be closed
+          max-life-time: 60s
+      # A list of default filters
+      default-filters:
+        #Ensures the session data is saved before forwarding a request downstream
+        - SaveSession 
+        # let’s configure the algorithm so that each request costs 1 token
+        # (redis-rate-limiter.requestedTokens). Tokens are dripped in the bucket follow-
+        # ing the configured replenish rate (redis-rate-limiter.replenishRate), which we’ll
+        # set as 10 tokens per second. Sometimes there might be spikes, resulting in a larger
+        # number of requests than usual. You can allow temporary bursts by defining a larger
+        # capacity for the bucket (redis-rate-limiter.burstCapacity), such as 20. This
+        # means that when a spike occurs, up to 20 requests are allowed per second. Since the
+        # replenish rate is lower than the burst capacity, subsequent bursts are not allowed.
+        # If two spikes happen sequentially, only the first one will succeed, while the second
+        # will result in some requests being dropped with an HTTP 429 - Too Many Requests
+        # response.
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter:
+              # Number of tokens dripped in the bucket each second
+              replenishRate: 10
+              # Allows request bursts of up to 20 requests
+              burstCapacity: 20
+              # How many tokens a request costs
+              requestedTokens: 1
+        - name: Retry
+          args:
+            # Maximum of 3 retry attempts
+            retries: 3
+            # Retries only GET requests
+            methods: GET
+            # Retries only when 5XX errors
+            series: SERVER_ERROR
+            # Retries only when the given exceptions are thrown
+            exceptions: java.io.IOException, java.util.concurrent.TimeoutException
+            # Retries with a delay computed as “firstBackoff * (factor ^ n)”
+            backoff:
+              firstBackoff: 50ms
+              maxBackOff: 500ms
+              factor: 2
+              basedOnPreviousValue: false
+      routes:
+        - id: catalog-route
+          uri: ${CATALOG_SERVICE_URL:http://localhost:9001}/books
+          predicates:
+            - Path=/books/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: catalogCircuitBreaker
+                # Forwards request to this URI when the circuit is open
+                fallbackUri: forward:/catalog-fallback
+        - id: order-route
+          uri: ${ORDER_SERVICE_URL:http://localhost:9002}/orders
+          predicates:
+            - Path=/orders/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                # No fallback defined for this circuit breaker.
+                name: orderCircuitBreaker
+resilience4j:
+  circuitbreaker:
+    configs:
+      # Default configuration bean for all circuit breakers
+      default:
+        #The size of the sliding window used to record the outcome of calls when the circuit is closed
+        slidingWindowSize: 20
+        # Number of permitted calls when the circuit is half-open
+        permittedNumberOfCallsInHalfOpenState: 5
+        # When the failure rate is above the threshold, the circuit becomes open.
+        failureRateThreshold: 50
+        # Waiting time before moving from open to half-open (ms)
+        waitDurationInOpenState: 15000
+  timelimiter:
+    configs:
+      # Default configuration bean for all time limiters
+      default:
+        # Configures a timeout (seconds)
+        timeoutDuration: 5s
+management:
+  endpoints:
+    web:
+      exposure:
+        #Exposes the /actuator/refresh endpoint through HTTP
+        include: refresh
+logging:
+  level:
+    io.github.resilience4j: debug 
+    org.springframework.cloud.gateway.filter: debug
+    org.springframework.cloud.gateway.handler.predicate: debug

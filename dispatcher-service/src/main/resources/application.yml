@@ -1,0 +1,42 @@
+server:
+  port: 9003
+
+spring:
+  application:
+    name: dispatcher-service
+  cloud:
+    function:
+      # We still need a way to compose the two functions. Based upon our requirements, dis-
+      # patching an order consists of two steps to be executed in sequence: pack() first and
+      # label() after.
+      # Java provides features to compose Function objects in sequence using the
+      # andThen() or compose() operators. The problem is that you can use them only when
+      # the output type of the first function is the same as the second function’s input. Spring
+      # Cloud Function provides a solution to that problem and lets you compose functions
+      # seamlessly through transparent type conversion, even between imperative and reac-
+      # tive functions like those we defined earlier.
+      # we can instruct Spring Cloud Function to use them as building blocks and
+      # produce a new function that comes from the composition of those two
+      definition: pack|label
+    stream:
+      # By default, Spring Cloud Stream uses the binding names to generate the names for
+      # exchanges and queues in RabbitMQ, but in a production scenario you’d probably
+      # want to manage them explicitly for several reasons. For example, it’s likely that both exchanges and queues already exist in production. 
+      # You will also want to control different options for exchanges and queues, like durability or routing algorithms.
+      # Section for configuring destination bindings
+      bindings:
+        # The input binding
+        packlabel-in-0:
+          # The actual name at the broker that the binder binds to (the exchange in RabbitMQ)
+          destination: order-accepted
+          # The consumer group interested in the destination (same as the application name)
+          group: ${spring.application.name}
+        # The output binding
+        packlabel-out-0:
+          destination: order-dispatched
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: user
+    password: password
+    connection-timeout: 5s

@@ -21,17 +21,6 @@ spring:
   config:
     # we can use (optional:configserver:http:/ /localhost:8888
     import: "optional:configserver:"
-  cloud:
-    config:
-      uri: http://localhost:8888
-      request-connect-timeout: 5000 # 5s
-      request-read-timeout: 5000 # 5s
-      fail-fast: false # In production, set to true
-      retry:
-        max-attempts: 6
-        initial-interval: 1000 # 1s
-        max-interval: 2000 # 2s
-        multiplier: 1.1
   r2dbc:
     username: user
     password: password
@@ -52,6 +41,54 @@ spring:
     user: ${spring.r2dbc.username}
     password: ${spring.r2dbc.password}
     url: jdbc:postgresql://localhost:5432/polardb_order
+  cloud:
+    config:
+      uri: http://localhost:8888
+      request-connect-timeout: 5000 # 5s
+      request-read-timeout: 5000 # 5s
+      fail-fast: false # In production, set to true
+      retry:
+        max-attempts: 6
+        initial-interval: 1000 # 1s
+        max-interval: 2000 # 2s
+        multiplier: 1.1
+    function:
+      # the dispatchOrder-in-0 binding (inferred from the dispatchOrder function name) is mapped to the order-dispatched exchange in RabbitMQ. 
+      # Definition of the function managed by Spring Cloud Function
+      # The consumers in Order Service will be part of the order-service consumer group, and Spring
+      # Cloud Stream will define a message channel between them and an order-dispatched
+      # .order-service queue in RabbitMQ.
+      definition: dispatchOrder
+    stream:
+      bindings:
+      # The input binding
+        dispatchOrder-in-0:
+          # The actual name at the broker that the binder binds to (the exchange in RabbitMQ)
+          destination: order-dispatched
+          # The consumer group interested in the destination (the same as the application name)
+          group: ${spring.application.name}
+          # Output binding created and managed by StreamBridge
+        acceptOrder-out-0:
+          # The actual name at the broker that the binder binds to (the exchange in RabbitMQ)
+          destination: order-accepted
+      rabbit:
+        bindings:
+          acceptOrder-out-0:
+            producer:
+              # Spring Boot comes preconfigured with transaction management functionality and
+              # can handle transactional operations involving relational databases (as you learned in
+              # chapter 5). However, the channel established with RabbitMQ for the message pro-
+              # ducer is not transactional by default. To make the event-publishing operation join the
+              # existing transaction, we need to enable RabbitMQ’s transactional support for the mes-
+              # sage producer
+              transacted: true
+  #Configures the integrations with RabbitMQ
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: user
+    password: password
+    connection-timeout: 5s
 management:
   endpoints:
     web:

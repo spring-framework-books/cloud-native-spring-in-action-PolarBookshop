@@ -13,9 +13,11 @@ jobs:
       fail-fast: false
       matrix:
         project: [
-          catalog-service,
           config-service,
-          order-service
+          edge-service,
+          catalog-service,
+          order-service,
+          dispatcher-service
         ]
     env:
       REGISTRY: ghcr.io 
@@ -86,9 +88,11 @@ jobs:
       fail-fast: false
       matrix:
         project: [
-          catalog-service,
           config-service,
-          order-service
+          edge-service,
+          catalog-service,
+          order-service,
+          dispatcher-service
         ]
     env:
       REGISTRY: ghcr.io 

@@ -172,6 +172,63 @@ related to one book only, and up to five copies.
 | `/orders`       | `POST`   | OrderRequest | 200    | Order          |Submits a new order for a given book in a given quantity| 
 | `/orders`       | `GET`    |              |200     | Order[]        |Retrieves all the orders                               | 
 
+### Edge Service
+In Edge Service, we’ll use Redis as the data service backing the request rate limiter implementation provided by Spring Cloud Gateway.
+
+### Dispatcher Service
+Whenever an order is accepted, Dispatcher
+Service should be responsible for packing and labeling the order, and for notifying
+interested parties (in this case, the Order Service) once the order has been dis-
+patched. For simplicity, let’s assume that both the pack and label actions are performed
+by the application itself
+
+The two actions to be performed as part of dispatching an order could be repre-
+sented as functions:
+
+* The pack function takes the identifier of an accepted order as input, packs the
+order (in the example, the processing is represented by a log message), and
+returns the order identifier as output, ready to be labeled.
+* The label function takes the identifier of a packed order as input, labels the
+order (in the example, the processing is represented by a log message), and
+returns the order identifier as output, completing the dispatch.
+
+![The business logic for Dispatcher Service is implemented as a composition of two functions: pack and label.](docs/business-logic-for-dispatcher-service.png)
+
+the pack function. The input of the function should provide the
+identifier of an order that has previously been accepted. We can model this data via a
+simple DTO.
+
+The output of the function can be the simple identifier of the packed order repre-
+sented as a Long object.
+
+### Messaging
+In the Polar Bookshop system, we need to implement an event-driven solution to allow
+different applications to communicate with each other asynchronously while reducing
+their coupling. These are the requirements:
+* When an order is accepted:
+    * Order Service should notify interested consumers of the event.
+    * Dispatcher Service should execute some logic to dispatch the order.
+* When an order is dispatched:
+    * Dispatcher Service should notify consumers interested in such an event.
+    * Order Service should update the order status in the database.
+
+The requirements don’t specify which
+applications Order Service should notify upon order creation. In our example, only
+the new Dispatcher Service application will be interested in those events. Still, more
+applications might subscribe to the order creation events in the future. The beauty of
+this design is that you can evolve a software system and add more applications without
+affecting the existing ones at all. For example, you could add a Mail Service that sends
+an email to users whenever an order they made has been accepted, and Order Service
+wouldn’t even be aware of it.
+
+![Order Service and Dispatcher Service communicate asynchronously and indirectly by producing and consuming events that are collected and distributed by an event broker (RabbitMQ)](docs/order-flow.png)
+
+RabbitMQ will be the event-
+processing platform responsible for collecting, routing, and distributing messages to
+consumers.
+
+![In the Polar Bookshop system, Order Service and Dispatcher Service communicate  asynchronously based on events distributed by RabbitMQ](docs/event-driven-part-of-Polar-Bookshop-system.png)
+
 ## Run
 Add GitHub Container Registry
 
@@ -221,9 +278,15 @@ docker build -t catalog-service .
 #### Using Buildpacks
 
 ```console
-./mvnw   -pl catalog-service spring-boot:build-image -DskipTests
+./mvnw -pl config-service spring-boot:build-image -DskipTests
 
-./mvnw   -pl config-service spring-boot:build-image -DskipTests
+./mvnw -pl edge-service spring-boot:build-image -DskipTests
+
+./mvnw -pl catalog-service spring-boot:build-image -DskipTests
+
+./mvnw -pl order-service spring-boot:build-image -DskipTests
+
+./mvnw -pl dispatcher-service spring-boot:build-image -DskipTests
 
 ./gradlew bootBuildImage -DskipTests
 
@@ -238,13 +301,23 @@ docker build -t catalog-service .
 ### Run services locally
 cd polar-deployment/docker
 
-docker-compose up -d polar-postgres
+docker-compose up -d
 
-./mvnw  -pl config-service spring-boot:run
+if you want to test specific service like edge-service
+ 
+docker-compose up -d polar-postgres polar-redis polar-rabbitmq config-service edge-service catalog-service order-service
 
-./mvnw  -pl catalog-service spring-boot:run
+./mvnw -pl config-service spring-boot:run
 
-./mvnw  -pl order-service spring-boot:run
+./mvnw -pl edge-service spring-boot:run
+
+./mvnw -pl catalog-service spring-boot:run
+
+./mvnw -pl order-service spring-boot:run
+
+./mvnw -pl dispatcher-service spring-boot:run
+
+RabbitMQ management console http:/ /localhost:15672
 ### Run using Docker compose
 cd polar-deployment/docker
 
@@ -256,6 +329,15 @@ docker-compose down
 #### Using kubectl
 minikube start --cpus 2 --memory 4g --driver docker --profile polar
 
+
+enable the ingress add-on, which will make sure that Ingress NGINX is deployed to our local cluster
+
+minikube addons enable ingress --profile polar
+
+get information about the different components deployed with Ingress NGINX as follows:
+
+kubectl get all -n ingress-nginx
+
 kubectl get nodes
 minikube profile list
 
@@ -263,7 +345,10 @@ cd polar-deployment/kubernetes/platform/development
 
 kubectl apply -f services
 
+minikube image load edge-service --profile polar
+minikube image load config-service --profile polar
 minikube image load catalog-service --profile polar
+minikube image load order-service --profile polar
 
 cd catalog-service/
 
@@ -283,12 +368,24 @@ form/development folder, and delete the PostgreSQL installation:
 
 kubectl delete -f services
 #### Using Tilt
+##### manually
 minikube start --profile polar
+
+minikube addons enable ingress --profile polar
 
 make sure you have a PostgreSQL instance up and running in your local Kubernetes cluster. 
 cd polar-deployment/kubernetes/platform/development
 
 kubectl apply -f services
+
+##### using script
+cd polar-deployment/kubernetes
+
+chmod +x create-cluster.sh
+
+./create-cluster.sh
+
+Then 
 
 cd polar-deployment/kubernetes/applications/development
 tilt up
@@ -297,7 +394,15 @@ open http://localhost:10350
 
 verify that the application is working correctly:
 
-http :9001/books
+http :9000/books
+
+Using ingress
+
+on linux first 
+minikube ip --profile polar
+
+then use this IP to call system
+http 192.168.49.2/books
 
 To stop the Tilt process in the Catalog Service project and run the following command to undeploy the application: 
 
@@ -316,8 +421,17 @@ minikube --profile polar dashboard
 
 === Query DB
 kubectl exec -it polar-postgres-d6474bb84-f8kks  -- psql  -U user -d polardb_catalog
+### stop and delete the local Kubernetes cluster 
+minikube stop --profile polar
 
+minikube delete --profile polar
 
+or using script
+cd polar-deployment/kubernetes
+
+chmod +x destroy-cluster.sh
+
+./destroy-cluster.sh
 ## Deployment
 ## static code analysis
 ### vulnerability scanner
@@ -348,12 +462,12 @@ grype .
 grype catalog-service
 ## Test
 ### Local 
-### Test Config Server
+#### Test Config Server
 http :8888/catalog-service/default
 
 http :8888/catalog-service/prod
  
-### test Catalog service
+#### test Catalog service
 *Books*
 
 http :9001/
@@ -366,10 +480,102 @@ http :9001/books/1234567891
 
 http POST :9001/books author="Jon Snow" title="" isbn="123ABC456Z" price=9.90
 
-### test orders service
-
+#### test orders service
 http POST :9002/orders isbn=1234567891 quantity=3
+#### test order Messaging using RabbitMQ
+add a new book to the catalog:
+
+http POST :9001/books author="Jon Snow" \
+ title="All I don't know about the Arctic" isbn="1234567897" \
+ price=9.90 publisher="Polarsophia"
+
+order three copies of that book:
+
+http POST :9002/orders isbn=1234567897 quantity=3
+
+Fetch the order from Order Service:
+
+http :9002/orders
+
+The status should be DISPATCHED:
+
+#### test using Gateway
+http :9000/books
+http :9000/orders
+
+#### testing gateway circuit breakers 
+docker compose stop catalog-service
+
+docker compose stop order-service
+
+./mvnw -pl edge-service clean spring-boot:run
+
+run 21 sequential POST requests (-n 21 -c 1 -m POST) to the /orders endpoint(POST
+requests have no retry configuration, and order-route has no fallback, so the result
+will only be affected by the timeout and circuit breaker)
+
+ab -n 21 -c 1 -m POST http://localhost:9000/orders
+
+From the ab output, you can see that all the requests returned an error:
+
+Complete requests: 21
+
+Non-2xx responses: 21
+
+The circuit breaker is configured to trip to the open state when at least 50% of the
+calls in a 20-sized time window fails. Since you have just started the application, the cir-
+cuit will transition to the open state after 20 requests. In the application logs, you can
+analyze how the requests have been handled. All the requests failed, so the circuit
+breaker registers an ERROR event for each of them:
+
+Event ERROR published: CircuitBreaker 'orderCircuitBreaker'
+ recorded an error.
+
+At the 20th request, a FAILURE_RATE_EXCEEDED event is recorded because it exceeded
+the failure threshold. That will result in a STATE_TRANSITION event that will open
+the circuit:
+Event ERROR published: CircuitBreaker 'orderCircuitBreaker'
+ recorded an error.
+Event FAILURE_RATE_EXCEEDED published: CircuitBreaker 'orderCircuitBreaker'
+ exceeded failure rate threshold.
+Event STATE_TRANSITION published: CircuitBreaker 'orderCircuitBreaker'
+ changed state from CLOSED to OPEN
+
+ The 21st request will not even try contacting Order Service: the circuit is open, so it
+cannot go through. A NOT_PERMITTED event is registered to signal why the request
+failed:
+Event NOT_PERMITTED published: CircuitBreaker 'orderCircuitBreaker'
+ recorded a call which was not permitted.
+
+call a GET endpoint for which both retries and fallback have been configured.
+
+rerun the edge application so you can start with a clear circuit breaker state 
+
+ab -n 21 -c 1 -m GET http://localhost:9000/books
+
+If you check the application logs, you’ll see how the circuit breaker behaves precisely
+like before: 20 allowed requests (closed circuit), followed by a non-permitted request
+(open circuit). However, the result of the previous command shows 21 requests com-
+pleted with no errors:
+Complete requests: 21
+Failed requests: 0
+This time, all requests have been forwarded to the fallback endpoint, so the client
+didn’t experience any errors.
+#### testing gateway  rate-limiting.
+http :9000/books
+
+The HTTP headers of the response shows the rate limiter’s configuration and the number of remaining requests allowed within the time window (1 second):
+    HTTP/1.1 200 OK
+    Content-Type: application/json
+    Date: Wed, 18 Jun 2025 15:22:51 GMT
+    X-RateLimit-Burst-Capacity: 20
+    X-RateLimit-Remaining: 19
+    X-RateLimit-Replenish-Rate: 10
+    X-RateLimit-Requested-Tokens: 1
+
+ab -n 25 -c 25 -m GET http://localhost:9000/books
 ### Local Kubernetes
+
 ### Test Config Server
 http :8888/catalog-service/default
 
@@ -394,3 +600,20 @@ http POST :9001/books author="Jon Snow" \
 http POST :9002/orders isbn=1234567897 quantity=3
 
 http :9002/orders
+
+#### test order Messaging using RabbitMQ
+add a new book to the catalog:
+
+http POST :9000/books author="Jon Snow" \
+ title="All I don't know about the Arctic" isbn="1234567897" \
+ price=9.90 publisher="Polarsophia"
+
+order three copies of that book:
+
+http POST :9000/orders isbn=1234567897 quantity=3
+
+Fetch the order from Order Service:
+
+http :9000/orders
+
+The status should be DISPATCHED:
