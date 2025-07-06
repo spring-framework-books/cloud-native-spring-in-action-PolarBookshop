@@ -1,9 +1,39 @@
 services:
-
+  polar-keycloak:
+    image: quay.io/keycloak/keycloak:26.2.5
+    container_name: "polar-keycloak"
+    command: start-dev --import-realm
+    healthcheck:
+      test: curl --fail http://localhost:8080/health --insecure || exit 1
+      interval: 10s
+      timeout: 1s
+      retries: 30
+      start_period: 60s
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import
+    environment:
+      - KEYCLOAK_ADMIN=user
+      - KEYCLOAK_ADMIN_PASSWORD=password
+      - KC_HOSTNAME=polar-keycloak
+      - KC_HEALTH_ENABLED=true
+    ports:
+      - 8080:8080
   # Applications
+
+  polar-ui:
+    image: polar-ui
+    container_name: "polar-ui"
+    ports:
+      - 9004:9004
+    environment:
+      - PORT=9004
+
   edge-service:
     depends_on:
+      - fluent-bit
+      - polar-keycloak
       - polar-redis
+      - polar-ui
     image: "edge-service"
     container_name: "edge-service"
     ports:
@@ -15,9 +45,27 @@ services:
       - BPL_DEBUG_PORT=8000
       - CATALOG_SERVICE_URL=http://catalog-service:9001
       - ORDER_SERVICE_URL=http://order-service:9002
+      - SPA_URL=http://polar-ui:9004
       - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
-      - SPRING_REDIS_HOST=polar-redis
+      - SPRING_DATA_REDIS_HOST=polar-redis
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUER_URI=http://polar-keycloak:8080/realms/PolarBookshop
+      - OTEL_SERVICE_NAME=order-service
+      # The URL of the distributed tracing backend supporting the OpenTelemetry protocol (OTLP)
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_LOGS_EXPORTER=none
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_RESOURCE_PROVIDERS_GCP_ENABLED=true
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
+    #extra_hosts:
+    #- "polar-keycloak:host-gateway" 
   config-service:
+    depends_on:
+      - fluent-bit
     image: "config-service"
     container_name: "config-service"
     ports:
@@ -29,9 +77,16 @@ services:
       # Buildpacks environment variable to enable debug through a socket on port 9888
       - BPL_DEBUG_ENABLED=true
       - BPL_DEBUG_PORT=9888
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
   catalog-service:
     depends_on:
+      - fluent-bit
+      - polar-keycloak
       - polar-postgres
+      - tempo
     image: "catalog-service"
     container_name: "catalog-service"
     ports:
@@ -46,9 +101,29 @@ services:
       - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
       - SPRING_DATASOURCE_URL=jdbc:postgresql://polar-postgres:5432/polardb_catalog
       - SPRING_PROFILES_ACTIVE=testdata
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://polar-keycloak:8080/realms/PolarBookshop
+      # Instructs the JVM to run the OpenTelemetry Java agent from the path where Cloud Native Buildpacks placed the application dependencies
+      #- JAVA_TOOL_OPTIONS=-javaagent:/workspace/BOOT-INF/lib/opentelemetry-javaagent-2.4.0.jar
+      # The name of the application, used to tag the traces produced by Catalog Service
+      - OTEL_SERVICE_NAME=catalog-service
+      # The URL of the distributed tracing backend supporting the OpenTelemetry protocol (OTLP)
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_LOGS_EXPORTER=none
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_RESOURCE_PROVIDERS_GCP_ENABLED=true
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
+
   order-service:
     depends_on:
+      - fluent-bit
+      - polar-keycloak
       - polar-postgres
+      - polar-rabbitmq
     image: "order-service"
     container_name: "order-service"
     ports:
@@ -61,6 +136,47 @@ services:
       - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
       - SPRING_R2DBC_URL=r2dbc:postgresql://polar-postgres:5432/polardb_order
       - SPRING_FLYWAY_URL=jdbc:postgresql://polar-postgres:5432/polardb_order
+      - SPRING_RABBITMQ_HOST=polar-rabbitmq
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://polar-keycloak:8080/realms/PolarBookshop
+      - OTEL_SERVICE_NAME=order-service
+      # The URL of the distributed tracing backend supporting the OpenTelemetry protocol (OTLP)
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_LOGS_EXPORTER=none
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_RESOURCE_PROVIDERS_GCP_ENABLED=true
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
+  dispatcher-service:
+    depends_on:
+      - fluent-bit
+      - polar-rabbitmq
+    image: "dispatcher-service"
+    container_name: dispatcher-service
+    ports:
+      - 9003:9003
+      - 8003:8003
+    environment:
+      # Buildpacks environment variable to enable debug through a socket on port 8002
+      - BPL_DEBUG_ENABLED=true
+      - BPL_DEBUG_PORT=8003
+      - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
+      - SPRING_RABBITMQ_HOST=polar-rabbitmq
+      - OTEL_SERVICE_NAME=dispatcher-service
+      # The URL of the distributed tracing backend supporting the OpenTelemetry protocol (OTLP)
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_LOGS_EXPORTER=none
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_RESOURCE_PROVIDERS_GCP_ENABLED=true
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
   # Backing Services
   polar-postgres:
     image: "postgres"
@@ -87,3 +203,60 @@ services:
       - 15672:15672
     volumes:
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+ # Observability
+
+  grafana:
+    image: grafana/grafana-oss:10.4.3
+    container_name: grafana
+    depends_on:
+      - loki
+      - prometheus
+      - tempo
+    ports:
+      - "3000:3000"
+    environment:
+      # Username and password to access Grafana
+      - GF_SECURITY_ADMIN_USER=user
+      - GF_SECURITY_ADMIN_PASSWORD=password
+    volumes:
+      # Volumes are used to load configuration for data sources and dashboards.
+      - ./observability/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./observability/grafana/grafana.ini:/etc/grafana/grafana.ini
+
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: loki
+    depends_on:
+      - fluent-bit
+    ports:
+      - "3100:3100"
+
+  fluent-bit:
+    image: grafana/fluent-bit-plugin-loki:2.9.8
+    container_name: fluent-bit
+    ports:
+      - "24224:24224"
+    environment:
+      # Defines the Loki URL used to forward log messages
+      - LOKI_URL=http://loki:3100/loki/api/v1/push
+    volumes:
+      # Volumes are used to load configuration for collecting and delivering logs.
+      - ./observability/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+  prometheus:
+    image: quay.io/prometheus/prometheus:v2.52.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: tempo
+    command: -config.file=/etc/tempo-config.yml
+    ports:
+      - "3110:3100"     # Tempo
+      - "4317:4317"     # OTel
+    volumes:
+      - ./observability/tempo/tempo.yml:/etc/tempo-config.yml

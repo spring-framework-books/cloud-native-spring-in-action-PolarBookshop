@@ -17,6 +17,11 @@
 		<imageName>${project.artifactId}</imageName>
 	</properties>
 	<dependencies>
+		<!-- Actuator needs a web server configured to serve its endpoints over HTTP-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webflux</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-stream-binder-rabbit</artifactId>

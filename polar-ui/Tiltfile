@@ -1,0 +1,40 @@
+# Build
+custom_build(
+    # Name of the container image
+    ref = 'polar-ui',
+    # Command to build the container image
+    # On Windows, replace $EXPECTED_REF with %EXPECTED_REF%
+    command = 'cd ./dist && pack build $EXPECTED_REF --buildpack paketo-buildpacks/web-servers --builder paketobuildpacks/builder-jammy-base  --env BP_WEB_SERVER_ROOT=public',
+    # Files to watch that trigger a new build
+    deps = ['src', 'package.json', 'package-lock.json', 'angular.json'],
+    live_update = [
+         # when package.json changes, we need to do a full build
+    fall_back_on(['package.json', 'package-lock.json', 'angular.json']),
+    # Map the local source code into the container under /src
+    sync('src', '/public'),
+  ]
+)
+
+# Deploy
+k8s_yaml(['k8s/deployment.yml', 'k8s/service.yml'])
+
+# Manage
+k8s_resource('polar-ui', port_forwards=['9004'])
+
+#  Using AI
+# Build
+# begin custom_build(
+#    ref = 'angular-app',
+#    command = 'pack build $EXPECTED_REF --buildpack paketo-buildpacks/nodejs --buildpack paketo-buildpacks/web-servers --builder paketobuildpacks/builder-jammy-base --env BP_NODE_RUN_SCRIPTS=build --env BP_WEB_SERVER_ROOT=dist/angular-app',
+#    deps = ['src', 'package.json', 'package-lock.json', 'angular.json'],
+#    live_update = [
+#        fall_back_on(['package.json', 'package-lock.json', 'angular.json']),
+#        sync('src', '/workspace/src'),
+#    ]
+#)
+
+# Deploy
+#k8s_yaml(['k8s/deployment.yaml', 'k8s/service.yaml'])
+
+# Manage
+#k8s_resource('angular-app', port_forwards=['4200'])

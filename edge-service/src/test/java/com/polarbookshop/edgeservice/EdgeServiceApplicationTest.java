@@ -7,6 +7,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 import org.springframework.boot.autoconfigure.cache.CacheProperties.Redis;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -18,13 +20,16 @@ used for storing web session–related data
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 // Activates automatic startup and cleanup of test containers
 @Testcontainers
-class EdgeServiceApplicationTests {
+class EdgeServiceApplicationTest {
 
 	private static final int REDIS_PORT = 6379;
 	// Defines a Redis container for testing
 	@Container
 	static final GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7.2"))
 			.withExposedPorts(REDIS_PORT);
+
+	@MockBean
+	ReactiveClientRegistrationRepository clientRegistrationRepository;
 
 	// Overwrites the Redis configuration to point to the test Redis instance
 	@DynamicPropertySource

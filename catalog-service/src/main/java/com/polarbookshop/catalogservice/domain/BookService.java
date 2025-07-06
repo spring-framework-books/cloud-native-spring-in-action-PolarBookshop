@@ -38,16 +38,18 @@ public class BookService {
                      * Uses the last modified date of the existing book record. It will be
                      * updated automatically by Spring Data if the operation succeeds.
                      */
-                    var bookToUpdate = new Book(
-                            existingBook.id(),
-                            existingBook.isbn(),
-                            book.title(),
-                            book.author(),
-                            book.price(),
-                            book.publisher(),
-                            existingBook.createdDate(),
-                            existingBook.lastModifiedDate(),
-                            existingBook.version());
+                   var bookToUpdate = new Book(
+							existingBook.id(),
+							existingBook.isbn(),
+							book.title(),
+							book.author(),
+							book.price(),
+							book.publisher(),
+							existingBook.createdDate(),
+							existingBook.lastModifiedDate(),
+							existingBook.createdBy(),
+							existingBook.lastModifiedBy(),
+							existingBook.version());
 
                     return bookRepository.save(bookToUpdate);
                 })

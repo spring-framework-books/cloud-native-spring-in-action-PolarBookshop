@@ -1,5 +1,6 @@
 package com.polarbookshop.orderservice.order.domain;
 
+
 import com.polarbookshop.orderservice.book.Book;
 import com.polarbookshop.orderservice.book.BookClient;
 import com.polarbookshop.orderservice.order.event.OrderAcceptedMessage;
@@ -30,6 +31,12 @@ public class OrderService {
 
     public Flux<Order> getAllOrders() {
         return orderRepository.findAll();
+    }
+
+    // When requesting all orders, the response includes only those belonging to the
+    // given user.
+    public Flux<Order> getAllOrders(String userId) {
+        return orderRepository.findAllByCreatedBy(userId);
     }
 
     /*
@@ -153,6 +160,8 @@ public class OrderService {
                 OrderStatus.DISPATCHED,
                 existingOrder.createdDate(),
                 existingOrder.lastModifiedDate(),
+                existingOrder.createdBy(),
+                existingOrder.lastModifiedBy(),
                 existingOrder.version());
     }
 

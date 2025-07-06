@@ -21,6 +21,24 @@ spring:
   config:
     # we can use (optional:configserver:http:/ /localhost:8888
     import: "optional:configserver:"
+  security:
+    oauth2:
+      client:
+        registration:
+          # The name identifying the Client registration in Spring Security (called “registrationId”). It can be any string.
+          keycloak:
+            # The OAuth2 Client identifier as defined in Keycloak
+            client-id: edge-service
+            # The shared secret used by the Client to authenticate with Keycloak
+            client-secret: polar-keycloak-secret
+            # The list of scopes the Client would like to have access to. The openid scope triggers OIDC authentication on top of OAuth2.
+            # Adds “roles” to the list of scopes so that Edge Service can get access to the user roles
+            scope: openid,roles
+        provider:
+          # The same name used as “registrationId” a few lines above
+          keycloak:
+            # The Keycloak URL providing information about all the relevant OAuth2 and OIDC endpoints for the specific realm
+            issuer-uri: http://localhost:8080/realms/PolarBookshop
   data:
     # used to provide storage for the rate limiters,
     redis:
@@ -32,7 +50,6 @@ spring:
     timeout: 10m
     redis:
       namespace: polar:edge
-
   cloud:
     config:
       uri: http://localhost:8888
@@ -62,6 +79,9 @@ spring:
       default-filters:
         #Ensures the session data is saved before forwarding a request downstream
         - SaveSession 
+        # Enables the propagation of the Access Token when calling a downstream service
+        # With the filter enabled, Spring Cloud Gateway takes care of propagating the right Access Token as an Authorization header in all outgoing requests to
+        - TokenRelay
         # let’s configure the algorithm so that each request costs 1 token
         # (redis-rate-limiter.requestedTokens). Tokens are dripped in the bucket follow-
         # ing the configured replenish rate (redis-rate-limiter.replenishRate), which we’ll
@@ -99,6 +119,12 @@ spring:
               factor: 2
               basedOnPreviousValue: false
       routes:
+        - id: spa-route
+          # The URI value comes from an environment variable, or else the specified default.
+          uri: ${SPA_URL:http://localhost:9004}
+          # The predicate is a list of paths matching the root endpoint and the SPA static resources.
+          predicates:
+            - Path=/,/*.css,/*.js,/favicon.ico
         - id: catalog-route
           uri: ${CATALOG_SERVICE_URL:http://localhost:9001}/books
           predicates:
@@ -137,14 +163,39 @@ resilience4j:
       default:
         # Configures a timeout (seconds)
         timeoutDuration: 5s
+logging:
+  pattern:
+    # Includes application name, trace ID, and span ID next to the log level (%5p)
+    level: "%5p [${spring.application.name},%X{trace_id},%X{span_id}]"
+  group:
+    circuitbreaker: io.github.resilience4j, org.springframework.cloud.circuitbreaker
+  level:
+    circuitbreaker: info
 management:
   endpoints:
     web:
       exposure:
-        #Exposes the /actuator/refresh endpoint through HTTP
-        include: refresh
-logging:
-  level:
-    io.github.resilience4j: debug 
-    org.springframework.cloud.gateway.filter: debug
-    org.springframework.cloud.gateway.handler.predicate: debug
+        include: bindings, configprops, env, flyway, functions, health, heapdump, info, loggers, mappings, prometheus
+  endpoint:
+    health:
+      # Always shows details about the application’s health
+      show-details: always
+      # Always shows information about the components used by the application
+      show-components: always
+      # Enables support for the health probes
+      probes:
+        enabled: true
+      group:
+        # The readiness probe will combine the application’s readiness state and Redis’s availability. 
+        readiness:
+          include: readinessState,redis
+  info:
+    env:
+      enabled: true
+    java:
+      enabled: true
+    os:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}

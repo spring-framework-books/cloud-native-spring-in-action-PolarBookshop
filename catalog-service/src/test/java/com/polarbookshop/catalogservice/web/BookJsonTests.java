@@ -22,7 +22,8 @@ class BookJsonTests {
         @Test
         void testSerialize() throws Exception {
                 var now = Instant.now();
-                var book = new Book(394L, "1234567890", "Title", "Author", 9.90, "Polarsophia", now, now, 21);
+                var book = new Book(394L, "1234567890", "Title", "Author", 9.90, "Polarsophia", now, now, "jenny",
+                                "eline", 21);
                 // Verifying the parsing from Java to JSON, using the JsonPath format to
                 // navigate the JSON object
                 var jsonContent = json.write(book);
@@ -42,6 +43,10 @@ class BookJsonTests {
                                 .isEqualTo(book.createdDate().toString());
                 assertThat(jsonContent).extractingJsonPathStringValue("@.lastModifiedDate")
                                 .isEqualTo(book.lastModifiedDate().toString());
+                assertThat(jsonContent).extractingJsonPathStringValue("@.createdBy")
+                                .isEqualTo(book.createdBy());
+                assertThat(jsonContent).extractingJsonPathStringValue("@.lastModifiedBy")
+                                .isEqualTo(book.lastModifiedBy());
                 assertThat(jsonContent).extractingJsonPathNumberValue("@.version")
                                 .isEqualTo(book.version());
         }
@@ -51,7 +56,7 @@ class BookJsonTests {
                 var instant = Instant.parse("2021-09-07T22:50:37.135029Z");
                 // Defines a JSON object using the Java text block feature
                 var content = """
-                                {
+                                 {
                                     "id": 394,
                                     "isbn": "1234567890",
                                     "title": "Title",
@@ -60,14 +65,16 @@ class BookJsonTests {
                                     "publisher": "Polarsophia",
                                     "createdDate": "2021-09-07T22:50:37.135029Z",
                                     "lastModifiedDate": "2021-09-07T22:50:37.135029Z",
+                                    "createdBy": "jenny",
+                                    "lastModifiedBy": "eline",
                                     "version": 21
                                 }
-                                """;
+                                                """;
                 // Verifies the parsing from JSON to Java
                 assertThat(json.parse(content))
                                 .usingRecursiveComparison()
                                 .isEqualTo(new Book(394L, "1234567890", "Title", "Author", 9.90, "Polarsophia", instant,
-                                                instant, 21));
+                                                instant, "jenny", "eline", 21));
         }
 
 }

@@ -201,6 +201,13 @@ simple DTO.
 The output of the function can be the simple identifier of the packed order repre-
 sented as a Long object.
 
+### Configuration
+
+For the Polar Bookshop system, we’ll use ConfigMaps and Secrets instead of the
+Config Service to configure applications in Kubernetes environments. Still, all the
+work we’ve done so far on Config Service would make including it in the overall
+deployment of Polar Bookshop on Kubernetes straightforward. 
+
 ### Messaging
 In the Polar Bookshop system, we need to implement an event-driven solution to allow
 different applications to communicate with each other asynchronously while reducing
@@ -229,6 +236,91 @@ consumers.
 
 ![In the Polar Bookshop system, Order Service and Dispatcher Service communicate  asynchronously based on events distributed by RabbitMQ](docs/event-driven-part-of-Polar-Bookshop-system.png)
 
+### Security
+Polar Bookshop has two types of users: customers and employees.
+
+* Customers can browse books and purchase them.
+* Employees can also add new books to the catalog, modify the existing ones, and delete them.
+
+In Polar Bookshop, Edge Service will initiate the user login flow, but then it will delegate the actual authentication step to Keycloak via the OIDC protocol (supported out
+of the box by Spring Security).
+
+In the case of Polar Bookshop, Edge Service can delegate the authentication step to
+Keycloak. After authenticating the user successfully, Keycloak will send a JWT to Edge
+Service with information about the newly authenticated user (ID Token). Edge Ser-
+vice will validate the JWT through its signature and inspect it to retrieve data (claims)
+about the user. Finally, it will establish an authenticated session with the user’s browser
+based on a session cookie, whose identifier is mapped to the JWT.
+
+For the Catalog Service application, we want to enforce the following security policies:
+
+* GET requests to fetch books should be allowed without authentication.
+* All other requests should require authentication.
+* The application should be configured as an OAuth2 Resource Server and use
+JWT authentication.
+* The flow for handling JWT authentication should be stateless.
+
+The Catalog Service endpoints should be protected according to the following policies:
+
+* All GET requests sent to the /, /books or /books/{isbn} endpoints should be
+allowed, even without authentication.
+* Any other request should require both user authentication and the employee role.
+
+For the Order Service application, we want to enforce the following security policies:
+* All requests should require authentication.
+* The application should be configured as an OAuth2 Resource Server and use
+JWT authentication.
+* The flow for handling JWT authentication should be stateless.
+
+Besides data auditing, Order Service has one additional critical requirement. Users
+should be able to access only their own orders. We need to ensure the privacy of all
+that data.ensuring that order data is only
+accessed by the users who created the orders. No user should be able to see the orders
+from another person.
+
+### Logging
+For the Polar Bookshop system, we’ll use Fluent Bit, Fluent Bit will collect logs from all running containers and forward them to Loki,
+which will store them and make them searchable. Finally, Grafana will use Loki as a data source and provide log visualization features. 
+![Logging architecture for cloud native applications based on the Grafana stack](docs/Logging-architecture-using-the-Grafana-stack.png)
+
+Fluent Bit can be configured to collect logs from different sources. For Polar Book-
+shop we’ll rely on the Fluentd driver available in Docker to collect logs automatically
+from running containers. The Docker platform itself listens to the log events from
+each container and routes them to the specified service. In Docker, a logging driver
+can be configured directly on a container. For example, update the Catalog Service
+configuration in Docker Compose to use the Fluentd logging driver, which will send
+the logs over to the Fluent Bit container.
+### Health
+for protecting the Spring Boot Actuator endpoints. For simplic-
+ity, in the Polar Bookshop system, we’ll keep the Actuator endpoints unauthenticated
+from inside the Kubernetes cluster and block any access to them from the outside.
+
+### Managing traces with Tempo and Grafana
+we’ll use OpenTelemetry (also called OTel ), a CNCF-incubating project that is quickly
+becoming the de facto standard for distributed tracing and aims at unifying the collec-
+tion of telemetry data (https://opentelemetry.io).
+
+Next we will use OpenTelemetry directly (with the Open-Telemetry Java instrumentation) instead of relying on a façade that instruments the code in a
+vendor-neutral way
+
+the distributed tracing backend of choice is Tempo
+
+We will complete the Grafana observability setup with
+Tempo and use it to collect and store traces. Then We’ll use the OpenTelemetry Java instrumentation in Spring Boot applications to generate and send
+traces to Tempo. Finally, we’ll query traces from Grafana.
+
+For simplicity, we’ll enable OpenTelemetry only when running applications in containers and
+rely on environment variables to configure it.
+
+### SPA
+we’ll add an Angular application that will
+be the frontend of the system. It will be served by an NGINX container and be accessi-ble via the gateway provided by Edge Service. 
+
+Like the other applications in the Polar Bookshop system, we don’t want the Angular
+application to be accessible directly from the outside. Instead, we want to make it
+accessible via the gateway provided by Edge Service. We can do that by adding a new
+route for Spring Cloud Gateway to forward any requests for static resources to the
+Polar UI application.
 ## Run
 Add GitHub Container Registry
 
@@ -278,6 +370,10 @@ docker build -t catalog-service .
 #### Using Buildpacks
 
 ```console
+
+./mvnw package
+./mvnw spring-boot:build-image -DskipTests
+
 ./mvnw -pl config-service spring-boot:build-image -DskipTests
 
 ./mvnw -pl edge-service spring-boot:build-image -DskipTests
@@ -290,6 +386,19 @@ docker build -t catalog-service .
 
 ./gradlew bootBuildImage -DskipTests
 
+```
+
+SPA
+
+cd polar-ui/dist
+
+./gradlew buildAngular
+
+```shell
+pack build polar-ui \
+  --buildpack paketo-buildpacks/web-servers \
+  --builder paketobuildpacks/builder-jammy-base \
+  --env BP_WEB_SERVER_ROOT=public
 ```
 ### Publish
  ./mvnw spring-boot:build-image \
@@ -305,7 +414,7 @@ docker-compose up -d
 
 if you want to test specific service like edge-service
  
-docker-compose up -d polar-postgres polar-redis polar-rabbitmq config-service edge-service catalog-service order-service
+docker-compose up -d polar-postgres polar-redis polar-rabbitmq polar-keycloak config-service edge-service catalog-service order-service
 
 ./mvnw -pl config-service spring-boot:run
 
@@ -318,13 +427,124 @@ docker-compose up -d polar-postgres polar-redis polar-rabbitmq config-service ed
 ./mvnw -pl dispatcher-service spring-boot:run
 
 RabbitMQ management console http:/ /localhost:15672
+#### Test OAuth2 with keycloak
+cd polar-deployment/docker
+
+docker-compose up -d polar-redis polar-keycloak
+
+./mvnw -pl edge-service spring-boot:run
+
+open a browser window,
+and head to http://localhost:9000/user. You should be redirected to a login page served
+by Keycloak, where you can authenticate as one of the users we created previously
+#### Run SPA
+docker-compose up -d polar-ui polar-redis polar-keycloak
+
+./mvnw -pl edge-service spring-boot:run
+
+open an incognito browser window and navigate to http://localhost:9000
+ 
+use  (bjorn/password) or (Isabelle/password) for testing
 ### Run using Docker compose
+
+echo "127.0.0.1 host.docker.internal" | sudo tee -a /etc/hosts
+
 cd polar-deployment/docker
 
 docker compose up -d
 
 docker-compose down
+#### Test Logging
+./mvnw -pl catalog-service spring-boot:run -Dspring-boot.run.profiles=testdata
+
+docker-compose up -d catalog-service grafana
+
+http :9001/books
+
+open a browser window, head to Grafana (http://localhost:3000), and use the
+credentials configured in Docker Compose to log in (user/password) . Then select
+the Explore page from the left menu, choose Loki as the data source, choose Last 1
+Hour from the time drop-down menu, and run the following query to search for all
+the logs produced by the catalog-service container:
+
+{container_name="/catalog-service"}
+#### Test Health
+cd polar-deployment/docker
+
+docker-compose up -d config-service polar-postgres polar-keycloak
+
+./mvnw -pl catalog-service spring-boot:run -Dspring-boot.run.profiles=testdata
+
+http :9001/actuator/health
+
+http :9001/actuator/health/liveness
+
+http :9001/actuator/health/readiness
+##### Test Monitoring
+
+cd polar-deployment/docker
+
+docker-compose up -d polar-keycloak polar-postgres
+
+./mvnw -pl catalog-service spring-boot:run
+
+http :9001/actuator/metrics
+
+http :9001/actuator/prometheus
+
+**Testing grafana**
+
+cd polar-deployment/docker
+
+docker-compose up -d polar-keycloak polar-postgres
+
+docker-compose up -d grafana
+
+docker-compose up -d catalog-service
+
+send a few requests to Catalog Service (http :9001/books),
+
+ab -n 30 -c 10 -m GET http://localhost:9001/books
+
+and then open a browser window and go to Grafana at http://localhost:3000 (user/password). In the Explore
+section, you can query metrics like you browsed logs. Choose Prometheus as the data
+source, select Last 5 Minutes from the time drop-down menu, and query the metrics
+related to the JVM memory used by the application as follows
+
+jvm_memory_used_bytes{application="catalog-service"}
+##### Test Tracing
+cd polar-deployment/docker
+
+docker-compose up -d catalog-service
+
+docker-compose up -d edge-service
+
+http :9001/books
+
+http :9000/books
+
+docker logs edge-service
+
+docker logs catalog-service
+
+http://localhost:3000
+
+Open a browser window, go to Grafana (http:/ /localhost:3000), and log in with
+the credentials configured in Docker Compose (user/password). On the Explore
+page, check the logs for Catalog Service ({container_name="/catalog-service"}),
+much like we did earlier. Next, click on the most recent log message to get more
+details. You’ll see a Tempo button next to the trace identifier associated with that log
+message. If you click that, Grafana redirects you to the related trace using data from
+Tempo, all in the same view
 ### Run using Kubernetes
+On linux
+echo "$(minikube ip --profile polar) polar-keycloak" | sudo tee -a /etc/hosts
+
+On Windows you must map the polar-keycloak hostname to 127.0.0.1 in the
+hosts file. Open a PowerShell window as an administrator, and run the following
+command:
+
+Add-Content C:\Windows\System32\drivers\etc\hosts "127.0.0.1 polar-keycloak"
 
 #### Using kubectl
 minikube start --cpus 2 --memory 4g --driver docker --profile polar
@@ -385,12 +605,24 @@ chmod +x create-cluster.sh
 
 ./create-cluster.sh
 
+##### Setting up the Grafana observability stack on Kubernetes
+cd polar-deployment/kubernetes
+
+chmod +x deploy-grafana-observability-stack.sh
+
+./deploy-grafana-observability-stack.sh
+
 Then 
 
 cd polar-deployment/kubernetes/applications/development
 tilt up
 
 open http://localhost:10350
+##### verify
+you can verify
+that all the backing services are ready and available with the following command:
+
+kubectl get deploy
 
 verify that the application is working correctly:
 
@@ -403,6 +635,8 @@ minikube ip --profile polar
 
 then use this IP to call system
 http 192.168.49.2/books
+
+keycloak: http://polar-keycloak/admin/
 
 To stop the Tilt process in the Catalog Service project and run the following command to undeploy the application: 
 

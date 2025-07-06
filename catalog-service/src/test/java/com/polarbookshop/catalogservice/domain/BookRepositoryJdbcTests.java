@@ -12,6 +12,7 @@ import org.springframework.boot.test.autoconfigure.data.jdbc.DataJdbcTest;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jdbc.core.JdbcAggregateTemplate;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,9 +21,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJdbcTest
 // Imports the data configuration (needed to enable auditing)
 @Import(DataConfig.class)
-// Disables the default behavior of relying on an embedded test database since we want to use Testcontainers
+// Disables the default behavior of relying on an embedded test database since
+// we want to use Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-// Enables the “integration” profile to load configuration from application-integration.yml
+// Enables the “integration” profile to load configuration from
+// application-integration.yml
 @ActiveProfiles("integration")
 class BookRepositoryJdbcTests {
 
@@ -79,6 +82,27 @@ class BookRepositoryJdbcTests {
     void existsByIsbnWhenNotExisting() {
         boolean existing = bookRepository.existsByIsbn("1234561240");
         assertThat(existing).isFalse();
+    }
+
+    // This test case is executed in an unauthenticated context.
+    @Test
+    void whenCreateBookNotAuthenticatedThenNoAuditMetadata() {
+        var bookToCreate = Book.of("1232343456", "Title", "Author", 12.90, "Polarsophia");
+        var createdBook = bookRepository.save(bookToCreate);
+        // No audit data when there is no authenticated user
+        assertThat(createdBook.createdBy()).isNull();
+        assertThat(createdBook.lastModifiedBy()).isNull();
+    }
+
+    // This test case is executed in an authenticated context for the user “john.”
+    @Test
+    @WithMockUser("john")
+    void whenCreateBookAuthenticatedThenAuditMetadata() {
+        var bookToCreate = Book.of("1232343457", "Title", "Author", 12.90, "Polarsophia");
+        var createdBook = bookRepository.save(bookToCreate);
+        // Audit data when there is an authenticated user
+        assertThat(createdBook.createdBy()).isEqualTo("john");
+        assertThat(createdBook.lastModifiedBy()).isEqualTo("john");
     }
 
     @Test

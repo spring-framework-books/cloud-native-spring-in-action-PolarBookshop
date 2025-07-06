@@ -14,6 +14,13 @@ spec:
     metadata:
       labels:
         app: catalog-service
+      annotations:
+        # Signals that Prometheus should scrape containers in this Pod
+        prometheus.io/scrape: "true"
+        # Identifies the HTTP endpoint that exposes Prometheus metrics
+        prometheus.io/path: /actuator/prometheus
+        # Specifies the port number where the metrics endpoint is available
+        prometheus.io/port: "9001"
     spec:
       containers:
         - name: catalog-service
@@ -35,3 +42,39 @@ spec:
               value: jdbc:postgresql://polar-postgres/polardb_catalog
             - name: SPRING_PROFILES_ACTIVE
               value: testdata
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: http://polar-keycloak/realms/PolarBookshop
+            - name: OTEL_SERVICE_NAME
+              value: catalog-service
+            # The URL of the distributed tracing backend supporting the OpenTelemetry protocol (OTLP)
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://tempo:4317
+            - name: OTEL_TRACES_EXPORTER
+              value: otlp
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_LOGS_EXPORTER
+              value: none
+            - name: OTEL_METRICS_EXPORTER
+              value: none
+            - name: OTEL_RESOURCE_PROVIDERS_GCP_ENABLED
+              value: "true"
+          # Configuration for the liveness probe
+          livenessProbe:
+            # Uses an HTTP GET request to get the liveness state
+            httpGet:
+              # The endpoint to call for the liveness state
+              path: /actuator/health/liveness
+              # The port to use to fetch the liveness state
+              port: 9001
+            # An initial delay before starting checking the liveness state
+            initialDelaySeconds: 10
+            # The frequency for checking the liveness state
+            periodSeconds: 5
+          # Configuration for the readiness probe
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 9001
+            initialDelaySeconds: 5
+            periodSeconds: 15
