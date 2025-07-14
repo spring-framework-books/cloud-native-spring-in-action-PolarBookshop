@@ -36,29 +36,30 @@ spec:
           env:
             - name: BPL_JVM_THREAD_COUNT
               value: "50"
-            - name: SPRING_CLOUD_CONFIG_URI
-              value: http://config-service
-            - name: SPRING_DATASOURCE_URL
-              value: jdbc:postgresql://polar-postgres/polardb_catalog
             - name: SPRING_PROFILES_ACTIVE
-              value: testdata
-            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
-              value: http://polar-keycloak/realms/PolarBookshop
-            - name: OTEL_SERVICE_NAME
-              value: catalog-service
-            # The URL of the distributed tracing backend supporting the OpenTelemetry protocol (OTLP)
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://tempo:4317
-            - name: OTEL_TRACES_EXPORTER
-              value: otlp
-            - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: grpc
-            - name: OTEL_LOGS_EXPORTER
-              value: none
-            - name: OTEL_METRICS_EXPORTER
-              value: none
-            - name: OTEL_RESOURCE_PROVIDERS_GCP_ENABLED
-              value: "true"
+              value: testdata      
+            # moved to ConfigMap        
+            #- name: SPRING_CLOUD_CONFIG_URI
+            #   value: http://config-service
+            # - name: SPRING_DATASOURCE_URL
+            #   value: jdbc:postgresql://polar-postgres/polardb_catalog
+            # - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+            #   value: http://polar-keycloak/realms/PolarBookshop
+            # - name: OTEL_SERVICE_NAME
+            #   value: catalog-service
+            # # The URL of the distributed tracing backend supporting the OpenTelemetry protocol (OTLP)
+            # - name: OTEL_EXPORTER_OTLP_ENDPOINT
+            #   value: http://tempo:4317
+            # - name: OTEL_TRACES_EXPORTER
+            #   value: otlp
+            # - name: OTEL_EXPORTER_OTLP_PROTOCOL
+            #   value: grpc
+            # - name: OTEL_LOGS_EXPORTER
+            #   value: none
+            # - name: OTEL_METRICS_EXPORTER
+            #   value: none
+            # - name: OTEL_RESOURCE_PROVIDERS_GCP_ENABLED
+            #   value: "true"
           # Configuration for the liveness probe
           livenessProbe:
             # Uses an HTTP GET request to get the liveness state
@@ -78,3 +79,13 @@ spec:
               port: 9001
             initialDelaySeconds: 5
             periodSeconds: 15
+          volumeMounts:
+            # Mounts the ConfigMap in the container as a volume
+            - name: catalog-config-volume
+              # Spring Boot will automatically find and include property files from this folder.
+              mountPath: /workspace/config
+      volumes:
+        - name: catalog-config-volume
+          configMap:
+            # The ConfigMap from which to create a volume
+            name: catalog-config

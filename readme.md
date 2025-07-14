@@ -208,6 +208,12 @@ Config Service to configure applications in Kubernetes environments. Still, all 
 work we’ve done so far on Config Service would make including it in the overall
 deployment of Polar Bookshop on Kubernetes straightforward. 
 
+#### Refreshing configuration at runtime
+For Polar Bookshop, we’ll use the Rolling restart(Changing a ConfigMap or a Secret can be followed by a rolling
+restart of all the Pods affected, making the applications reload all the configuration data. With this option, Kubernetes Pods would remain immutable.
+) and rely on Kustomize to trigger a
+restart of the applications whenever a new change is applied to a ConfigMap or a
+Secret.
 ### Messaging
 In the Polar Bookshop system, we need to implement an event-driven solution to allow
 different applications to communicate with each other asynchronously while reducing
@@ -309,8 +315,7 @@ We will complete the Grafana observability setup with
 Tempo and use it to collect and store traces. Then We’ll use the OpenTelemetry Java instrumentation in Spring Boot applications to generate and send
 traces to Tempo. Finally, we’ll query traces from Grafana.
 
-For simplicity, we’ll enable OpenTelemetry only when running applications in containers and
-rely on environment variables to configure it.
+For simplicity, we’ll enable OpenTelemetry only when running applications in containers and rely on environment variables to configure it.
 
 ### SPA
 we’ll add an Angular application that will
@@ -321,6 +326,13 @@ application to be accessible directly from the outside. Instead, we want to make
 accessible via the gateway provided by Edge Service. We can do that by adding a new
 route for Spring Cloud Gateway to forward any requests for static resources to the
 Polar UI application.
+### Deployment
+#### Kubernetes
+After collecting the multiple manifests needed to deploy an application, we are faced with additional challenges. How can we change the values in a ConfigMap depending on the environment? How can we change the container image version? What about Secrets and volumes? Is it possible to update the health probe’s configuration? Many tools have been introduced in the last few years to improve how we configure and deploy workloads in Kubernetes. 
+
+For the Polar Bookshop system, we would like a tool that lets us handle multiple Kubernetes manifests as a single entity and
+customize parts of the configuration depending on the environment where the application is deployed
+
 ## Run
 Add GitHub Container Registry
 
@@ -688,6 +700,44 @@ mvn spring-boot:run -pl catalog-service -Dspring-boot.run.profiles=testdata
 
 ## Deploy
 ## Kubernetes
+### using Kustomize
+testing one service 
+```cd polar-deployment/kubernetes```
+
+``./create-cluster.sh``
+
+package the application as a container image and load it into the cluster
+
+```./mvnw -pl catalog-service spring-boot:build-image -DskipTests```
+
+```minikube image load catalog-service --profile polar```
+
+apply ConfigMap
+
+```cd catalog-service```
+
+```kubectl apply -f k8s/kustomization.yml```
+
+verify that the ConfigMap has been created correctly with this command:
+
+```kubectl get cm -l app=catalog-service```
+
+deploy the application in the local cluster by applying the Deployment and Service manifests:
+
+```kubectl apply -f k8s/deployment.yml -f k8s/service.yml```
+
+verify when Catalog Service is available and ready to accept requests with this command:
+
+```kubectl get deploy -l app=catalog-service```
+
+forward traffic from your local machine to the Kubernetes cluster by running the following command:
+
+```kubectl port-forward service/catalog-service 9001:80```
+
+verify that the polar.greeting value specified in the ConfigMap is used instead of the default one:
+
+```http :9001/```
+
 
 ###  vulnerability scanner
 cd catalog-service/
@@ -851,3 +901,48 @@ Fetch the order from Order Service:
 http :9000/orders
 
 The status should be DISPATCHED:
+#### test Kubernetes ConfigMaps 
+
+**test catalog-service**
+
+```cd polar-deployment/kubernetes```
+
+``./create-cluster.sh``
+
+package the application as a container image and load it into the cluster
+
+```./mvnw -pl catalog-service spring-boot:build-image -DskipTests```
+
+```minikube image load catalog-service --profile polar```
+
+apply ConfigMap
+
+```cd catalog-service```
+
+```kubectl apply -f k8s/configmap.yml```
+
+verify that the ConfigMap has been created correctly with this command:
+
+```kubectl get cm -l app=catalog-service```
+
+deploy the application in the local cluster by applying the Deployment and Service manifests:
+
+```kubectl apply -f k8s/deployment.yml -f k8s/service.yml```
+
+verify when Catalog Service is available and ready to accept requests with this command:
+
+```kubectl get deploy -l app=catalog-service```
+
+forward traffic from your local machine to the Kubernetes cluster by running the following command:
+
+```kubectl port-forward service/catalog-service 9001:80```
+
+verify that the polar.greeting value specified in the ConfigMap is used instead of the default one:
+
+```http :9001/```
+
+```http :9001/books```
+
+run the following command, but keep the cluster running, since we’re going to use it again soon:
+
+```kubectl delete -f k8s```
