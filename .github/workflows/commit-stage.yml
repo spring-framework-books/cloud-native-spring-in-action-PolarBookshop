@@ -65,11 +65,11 @@ jobs:
       - name: Install tools
         uses: alexellis/arkade-get@master
         with:
+          kustomize: latest
           kubeconform: latest
       - name: Validate Kubernetes manifests
         run: |
-          cd ${{ matrix.project }}
-          kubeconform --strict k8s
+          kustomize build k8s | kubeconform --strict -
   package: 
     name: Package and Publish
     # This job runs only on the main branch
