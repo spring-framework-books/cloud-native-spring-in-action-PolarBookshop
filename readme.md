@@ -333,6 +333,8 @@ After collecting the multiple manifests needed to deploy an application, we are 
 For the Polar Bookshop system, we would like a tool that lets us handle multiple Kubernetes manifests as a single entity and
 customize parts of the configuration depending on the environment where the application is deployed
 
+For the Polar Bookshop system, we’ll use the k8s folder in each application project as
+a base and define overlays in the polar-deployment repository
 ## Run
 Add GitHub Container Registry
 
@@ -701,7 +703,8 @@ mvn spring-boot:run -pl catalog-service -Dspring-boot.run.profiles=testdata
 ## Deploy
 ## Kubernetes
 ### using Kustomize
-testing one service 
+**testing one service** 
+
 ```cd polar-deployment/kubernetes```
 
 ``./create-cluster.sh``
@@ -712,23 +715,19 @@ package the application as a container image and load it into the cluster
 
 ```minikube image load catalog-service --profile polar```
 
-apply ConfigMap
+apply Kustomization
 
 ```cd catalog-service```
 
-```kubectl apply -f k8s/kustomization.yml```
-
-verify that the ConfigMap has been created correctly with this command:
-
-```kubectl get cm -l app=catalog-service```
-
-deploy the application in the local cluster by applying the Deployment and Service manifests:
-
-```kubectl apply -f k8s/deployment.yml -f k8s/service.yml```
+```kubectl apply -k k8s```
 
 verify when Catalog Service is available and ready to accept requests with this command:
 
 ```kubectl get deploy -l app=catalog-service```
+
+verify that the ConfigMap has been created correctly with this command:
+
+```kubectl get cm -l app=catalog-service```
 
 forward traffic from your local machine to the Kubernetes cluster by running the following command:
 
@@ -738,7 +737,54 @@ verify that the polar.greeting value specified in the ConfigMap is used instead 
 
 ```http :9001/```
 
+to test automatic refresh of application.yml
 
+update the value for the polar.greeting property
+in the application.yml file used by Kustomize to generate the ConfigMap.
+[source,yml,attributes]
+----
+polar:
+  greeting: Welcome to the book catalog from a development Kubernetes environment! using Kustomize
+----
+
+Then apply the Kustomization again (kubectl apply -k k8s).
+
+stop the port-forwarding process (Ctrl-C) and undeploy Catalog Service (kubectl delete -k k8s)
+
+### Managing Kubernetes configuration for multiple environments with Kustomize
+**testing one service** 
+
+```cd polar-deployment/kubernetes```
+
+``./create-cluster.sh``
+
+apply Kustomization
+
+```cd polar-deployment/kubernetes/applications/catalog-service/staging```
+
+```kubectl apply -k .```
+
+verify when Catalog Service is available and ready to accept requests with this command:
+
+```kubectl get deploy -l app=catalog-service```
+
+it will list 2 replicas
+
+verify that the ConfigMap has been created correctly with this command:
+
+```kubectl get cm -l app=catalog-service```
+
+forward traffic from your local machine to the Kubernetes cluster by running the following command:
+
+```kubectl port-forward service/catalog-service 9001:80```
+
+verify that the polar.greeting value specified in the ConfigMap is used instead of the default one:
+
+```http :9001/```
+
+you can also try to update the application-staging.yml file, apply the Kustomization to the cluster again (kubectl apply -k .), and see how the Catalog Service Pods are restarted one after the other (rolling restarts) to load the new ConfigMap with zero downtime. 
+
+stop the port-forwarding process (Ctrl-C) and undeploy Catalog Service (kubectl delete -k .) or  delete the cluster with ./destroy-cluster.sh
 ###  vulnerability scanner
 cd catalog-service/
 mvn install

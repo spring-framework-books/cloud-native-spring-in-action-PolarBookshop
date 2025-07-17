@@ -1,80 +1,11 @@
-server:
-  port: 9001
-  tomcat:
-    connection-timeout: 2s
-    keep-alive-timeout: 15s
-    threads:
-      max: 50
-      min-spare: 5
-
 polar:
-  greeting: Welcome to the book catalog from a development Kubernetes environment!
+  greeting: Welcome to the book catalog from a development Kubernetes environment! using Kustomize
 
 spring:
-  application:
-    name: catalog-service
-  lifecycle:
-    #    You can also configure the grace period, which is how long the applica-
-    # tion can spend processing all the pending requests. After the grace period expires,
-    # the application is terminated even if there are still pending requests. By default, the
-    # grace period is 30 seconds. 
-    timeout-per-shutdown-phase: 15s 
-  config:
-    # we can use (optional:configserver:http:/ /localhost:8888
-    # import: "optional:configserver:"
-    # Disabling Spring Cloud Config in Catalog Service to use Kubernetes ConfigMaps 
-    import: ""
-  cloud:
-    config:
-      enabled: "false"
-      uri: http://config-service
-      request-connect-timeout: 5000 # 5s
-      request-read-timeout: 5000 # 5s
-      fail-fast: false # In production, set to true
-      retry:
-        max-attempts: 6
-        initial-interval: 1000 # 1s
-        max-interval: 2000 # 2s
-        multiplier: 1.1
   datasource:
-    username: user
-    password: password
     url: jdbc:postgresql://polar-postgres/polardb_catalog
-    hikari:
-      # The maximum time (ms) to spend waiting to get a connection from the pool
-      connection-timeout: 2000 #ms
-      # The maximum number of connections HikariCP will keep in the pool
-      maximum-pool-size: 5
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: http://polar-keycloak/realms/PolarBookshop
-logging:
-  pattern:
-    level: "%5p [${spring.application.name},%X{trace_id},%X{span_id}]"
-
-info:
-  system: Polar Bookshop
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: bindings, configprops, env, flyway, functions, health, heapdump, info, loggers, mappings, prometheus
-  endpoint:
-    health:
-      show-details: always
-      show-components: always
-      probes:
-        enabled: true
-  info:
-    env:
-      enabled: true
-    java:
-      enabled: true
-    os:
-      enabled: true
-  metrics:
-    tags:
-      application: ${spring.application.name}
