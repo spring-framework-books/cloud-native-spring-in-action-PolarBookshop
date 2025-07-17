@@ -335,6 +335,12 @@ customize parts of the configuration depending on the environment where the appl
 
 For the Polar Bookshop system, we’ll use the k8s folder in each application project as
 a base and define overlays in the polar-deployment repository
+
+## Versioning release candidates for continuous delivery
+For Polar Bookshop, we’ll adopt a simple solution and use the Git commit hash
+directly to identify our release candidates. Therefore, we’ll ignore the version number
+configured in the Gradle project (which could instead be used as the display version
+name). For example, a release candidate for Catalog Service would be ghcr.io/<your_github_username>/catalog-service:<commit-hash>.
 ## Run
 Add GitHub Container Registry
 
