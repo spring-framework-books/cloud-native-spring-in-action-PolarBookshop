@@ -1,0 +1,92 @@
+name: Acceptance Stage
+on:
+  workflow_run:
+    # This workflow is triggered when the Commit Stage workflow completes a run.
+    workflows: ['Commit Stage']
+    types: [completed]
+    # This workflow runs only on the main branch.
+    branches: main
+# Ensures that only one workflow runs at a time
+concurrency: acceptance
+
+env:
+  OWNER: ${{ github.repository_owner }} 
+  REGISTRY: ghcr.io
+  #APP_REPO: catalog-service
+  DEPLOY_REPO: polar-deployment
+  VERSION: ${{ github.sha }}
+# this job runs only if the commit stage completed successfully
+jobs:
+  functional:
+    name: Functional Acceptance Tests
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [
+          config-service,
+          edge-service,
+          catalog-service,
+          order-service,
+          dispatcher-service
+        ]
+    steps:
+      - run: echo "Running functional acceptance tests"
+  performance:
+    name: Performance Tests
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [
+          config-service,
+          edge-service,
+          catalog-service,
+          order-service,
+          dispatcher-service
+        ]
+    steps:
+      - run: echo "Running performance tests"
+  security:
+    name: Security Tests
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [
+          config-service,
+          edge-service,
+          catalog-service,
+          order-service,
+          dispatcher-service
+        ] 
+    steps:
+      - run: echo "Running security tests"
+  deliver:
+    name: Deliver release candidate to production
+    needs: [ functional, performance, security ]
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [
+          config-service,
+          edge-service,
+          catalog-service,
+          order-service,
+          dispatcher-service
+        ]
+    steps:
+      - name: Deliver application to production
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.DISPATCH_TOKEN }}
+          repository: ${{ env.OWNER }}/${{ env.DEPLOY_REPO }}
+          event-type: app_delivery
+          client-payload: '{
+            "app_image": "${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.project }}",
+            "app_name": "${{ matrix.project }}",
+            "app_version": "${{ env.VERSION }}"}'
