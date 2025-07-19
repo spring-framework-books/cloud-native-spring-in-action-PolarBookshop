@@ -13,7 +13,7 @@ env:
   OWNER: ${{ github.repository_owner }} 
   REGISTRY: ghcr.io
   #APP_REPO: catalog-service
-  DEPLOY_REPO: polar-deployment
+  DEPLOY_REPO: cloud-native-spring-in-action-PolarBookshop
   VERSION: ${{ github.sha }}
 # this job runs only if the commit stage completed successfully
 jobs:
@@ -87,12 +87,24 @@ jobs:
           username: ${{ github.repository_owner }} 
           password: ${{ secrets.GITHUB_TOKEN }} 
       - name: Deliver application to production
+        # An action to send an event to another repository and trigger a workflow
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.DISPATCH_TOKEN }}
           repository: ${{ env.OWNER }}/${{ env.DEPLOY_REPO }}
+          # A name to identify the event (this is up to you)
           event-type: app_delivery
+          # The payload of the message sent to the other repository. Add any information that the other repository might need to perform its operations.
           client-payload: '{
             "app_image": "${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.project }}",
             "app_name": "${{ matrix.project }}",
             "app_version": "${{ env.VERSION }}"}'
+      - name: Dump GitHub context
+        env:
+            app_image: "${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.project }}"
+            app_name: "${{ matrix.project }}"
+            app_version: "${{ env.VERSION }}"
+        run: |
+          echo "App image: $app_image"
+          echo "App name: $app_name"
+          echo "App version: $app_version"

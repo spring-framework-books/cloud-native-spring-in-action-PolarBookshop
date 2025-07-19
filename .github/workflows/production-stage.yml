@@ -1,0 +1,38 @@
+name: Production Stage
+
+on:
+  # Executes the workflow only when a new app_delivery event is received, dispatched from another repository
+  repository_dispatch:
+    types: [app_delivery]
+
+jobs:
+  update:
+    name: Update application version
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      # Saves the event payload data as environment variables for convenience
+      APP_IMAGE: ${{ github.event.client_payload.app_image }}
+      APP_NAME: ${{ github.event.client_payload.app_name }}
+      APP_VERSION: ${{ github.event.client_payload.app_version }}
+    steps:
+        # Checks out the repository
+      - name: Checkout source code
+        uses: actions/checkout@v4
+      - name: Update image version
+        # Navigates to the production overlay for the given application
+        # Updates the image name and version via Kustomize for the given application
+        # Updates the tag used by Kustomize to access the correct base manifests stored in the application repository
+        run: |
+          cd polar-deployment/kubernetes/applications/${{ env.APP_NAME }}/production
+          echo "image: ${{ env.APP_NAME }}=${{ env.APP_IMAGE }}:${{ env.APP_VERSION }}"
+          kustomize edit set image ${{ env.APP_NAME }}=${{ env.APP_IMAGE }}:${{ env.APP_VERSION }}
+          sed -i 's/ref=[\w+]/${{ env.APP_VERSION }}/' kustomization.yml
+      # An action to commit and push the changes applied to the current repository from the previous step
+      - name: Commit updated manifests
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+            # Details about the commit operation
+          commit_message: "Update ${{ env.APP_NAME }} to version ${{ env.APP_VERSION }}"
+          branch: main

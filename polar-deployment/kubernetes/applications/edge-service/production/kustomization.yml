@@ -6,11 +6,14 @@ resources:
 
 patchesStrategicMerge:
   - patch-env.yml
+  - patch-ingress.yml
+  - patch-resources.yml
+  - patch-volumes.yml
 
 configMapGenerator:
   - behavior: merge
     files:
-      - application-staging.yml
+      - application-prod.yml
     name: edge-config
 
 images:
@@ -19,5 +22,5 @@ images:
     newTag: latest
 
 replicas:
-  - name: edge-service
-    count: 1
+  - count: 1
+    name: edge-service
