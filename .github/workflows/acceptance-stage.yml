@@ -102,7 +102,7 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           #token: ${{ secrets.DISPATCH_TOKEN }}
-          repository: ${{ env.DEPLOY_REPO }}
+          repository: ${{ env.OWNER }}/${{ env.DEPLOY_REPO }}
           # A name to identify the event (this is up to you)
           event-type: app_delivery
           # The payload of the message sent to the other repository. Add any information that the other repository might need to perform its operations.
