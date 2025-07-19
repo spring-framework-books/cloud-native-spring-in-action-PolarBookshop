@@ -86,6 +86,15 @@ jobs:
           registry: ${{ env.REGISTRY }} 
           username: ${{ github.repository_owner }} 
           password: ${{ secrets.GITHUB_TOKEN }} 
+      - name: Dump GitHub context
+        env:
+            app_image: "${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.project }}"
+            app_name: "${{ matrix.project }}"
+            app_version: "${{ env.VERSION }}"
+        run: |
+          echo "App image: $app_image"
+          echo "App name: $app_name"
+          echo "App version: $app_version"
       - name: Deliver application to production
         # An action to send an event to another repository and trigger a workflow
         uses: peter-evans/repository-dispatch@v3
@@ -99,12 +108,3 @@ jobs:
             "app_image": "${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.project }}",
             "app_name": "${{ matrix.project }}",
             "app_version": "${{ env.VERSION }}"}'
-      - name: Dump GitHub context
-        env:
-            app_image: "${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.project }}"
-            app_name: "${{ matrix.project }}"
-            app_version: "${{ env.VERSION }}"
-        run: |
-          echo "App image: $app_image"
-          echo "App name: $app_name"
-          echo "App version: $app_version"
